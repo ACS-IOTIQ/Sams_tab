@@ -1,0 +1,387 @@
+Inspection Module: 
+Provision for uploading multiple PDF OR EXCEL files in each structural & non-structural components like images.
+Type of distress in RCC Structures– 1 Physical 2 Chemical 3. Mechanical 4. None – (Need to provide combination of selecting two types or three types – Ex. Physical & Chemical or Chemical & Mechanical or Physical & Mechanical or all three types).
+Type of distress in steel structures– 
+1 Corrosion 2 Section Loss 3. Warping 4. None – (Need to provide combination of selecting two types or three types – for all structural components in steel members expect foundation, columns, beams.  
+1 Physical 2 Chemical 3. Mechanical 4. Corrosion 5. Section Loss 6. Warping 7. None – (Need to provide combination of selecting two types or three types – Ex. Physical & Chemical or Chemical & Mechanical or Physical & Mechanical or all three types or Corrosion & Section loss or Corrosion & Warping or Section loss & Warping) for footings, columns, beams only.     
+Remove type of distress in non structural components in RCC and Steel type.
+Flexibility in adding additional items in Structural and Non-Structural Components.
+Whether testing required or not after submission of Structural ratings.  Only for structural members. Non-structural members do not require testing:  Yes or No.
+*Note : Yellow highlighting indicates already shared with you at time of visit to Hyderabad.
+While adding new structure, previous data is reflecting in some screens.
+In RCC type, while submitting non structural components it shows error.
+In Steel type, while submitting structural and non-structural components it shows error.
+In RCC & Steel type, some of the saved data is not visible while coming to the structural & non-structural ratings screen [While checking in edit option].
+In structural rating screen, if we enter the values below ‘1’ in L, B & H [0.8 or 0.2], it shows error while submitting. [For example if the component is in excellent condition, the value be 0, So keep provision that if we enter zero it does not shows error while submitting]
+Walls & Painting missing in steel non structural components.
+Individual formats for 1. Quantifications 2. Non-destructive test results 
+All these would be part of report. All other matter of the report is to be prepared by our team 
+Excel format for Quantification
+S.No
+Location of Distress
+Distress
+Length (Rm) / Area (Sqm) / Volume (Cum)
+Repair Methodology
+Nos
+L (M)
+B (M)
+H (M)
+FOOTINGS
+1
+Spalling observed on footing F2
+1
+1
+1.5
+0.3
+0.45
+Micro concrete
+2
+Delamination observed on footing A1
+1
+1
+0.8
+-
+0.8
+Polymer modified mortar
+3
+Cracks observed on footing A1
+1
+5
+-
+-
+5
+Epoxy Grouting
+COLUMNS
+1
+Spalling observed on column D1 in ground floor 
+1
+3
+1.5
+0.3
+1.35
+Polymer modified mortar
+2
+Honey combing observed on column A1 in second floor
+1
+5
+3
+-
+15
+Replastering
+3
+Cracks observed on column A1
+1
+10
+-
+-
+10
+Cement Grouting
+Walls
+1
+Cracks observed on walls at 5 locations
+5
+10
+-
+-
+50
+Cement Grouting
+Painting
+1
+Paint peeling observed
+1
+10
+15
+-
+150
+Repainting
+Flooring
+1
+Tiles broken in production area
+1
+50
+30
+-
+1500
+Replacement of tiles
+Plumbing
+1
+Outlet pipe broken in block b & block c
+5
+50
+-
+-
+250
+Replacement of 2 inch Pipes
+2
+Two taps are not working in dining area
+2
+-
+-
+-
+2
+ 
+Electrical
+1
+Supply not coming to the switch board in kitchen
+1
+-
+-
+-
+1
+Need to be check
+2
+Lights not functioning in reception
+5
+-
+-
+-
+5
+Replacement of 6 inch ceiling lights
+Quantities in the above table have to sum each repair methodology type
+S. No
+Description
+Quantity
+Units
+1
+Micro concrete
+0.45
+CUM
+2
+Polymer modified mortar
+2.15
+SQM
+3
+Epoxy grouting (Multiple the actual quantity with 8)
+40
+KGS
+4
+Cement grouting (Multiple the actual quantity with 8)
+60
+KGS
+5
+Repainting
+150
+SQM
+6
+Replaster
+15
+SQM
+7
+Replacement of 2 inch pipes
+250
+RM
+8
+Replacement of 6 inch ceiling lights
+5
+NO'S
+Note : 1. The distress, L, B, H, Repair methodology entered in the structural rating screen should reflect in this table format.                                                                      2. Need editing option in this table format.                                                                                                                                                                                                                          3. Structural and non-structural distress should reflect in this table separately.
+After entering the details in this format manually, automatic summation of each repair component has to come at the bottom and the same have to reflect at the Bill of quantity summary for structural and non-structural components Whichever data we’re entering in the observations must be reflect in the quantification summary.
+** Number of items and types will increase based on the site condition – Add option required** 
+Non-Destructive Testing Module: 
+List of tests need to be visible with drop down 
+REBOUND HAMMER TEST
+ULTRA PULSE VELOCITY TEST
+HALF CELL POTENTIAL TEST
+CARBONATION DEPTH TEST
+COVER METER TEST
+CORE CUTTING TEST
+PULL OUT TEST
+CHEMICAL ANALYSIS
+ULTRASONIC THICKNESS GUAGE TEST
+ULTRASONIC TESTING
+MAGNETIC PARTICLE TEST
+LIQUID PENETRATION TEST
+PORTABLE HARDNESS TEST
+Required flexibility in adding new tests formats – Provide option to create these formats for new tests.
+Rebound Hammer Test
+We'll manually enter the location of the test, degrees and rebound numbers (grid size varies: 6, 9, or 12). The system should auto-calculate the average rebound number and surface strength (using pre-submitted 0° and 90° strength values).
+0 DEGREES
+90 DEGREES
+Rebound No
+Strength (N/mm2)
+Rebound No
+Strength (N/mm2)
+20
+10
+20
+10
+21
+11
+21
+10
+22
+12
+22
+10
+23
+13
+23
+10
+24
+15
+24
+10
+25
+16
+25
+10
+26
+17
+26
+11
+27
+19
+27
+12
+28
+20
+28
+13
+29
+22
+29
+15
+30
+23
+30
+16
+31
+25
+31
+18
+32
+27
+32
+19
+33
+28
+33
+21
+34
+30
+34
+23
+35
+32
+35
+25
+36
+33
+36
+26
+37
+35
+37
+28
+38
+37
+38
+29
+39
+39
+39
+31
+40
+40
+40
+33
+41
+42
+41
+35
+42
+44
+42
+37
+43
+46
+43
+39
+44
+48
+44
+41
+45
+50
+45
+43
+46
+51
+46
+45
+47
+53
+47
+47
+48
+54
+48
+49
+49
+56
+49
+51
+50
+58
+50
+53
+51
+60
+51
+55
+52
+62
+52
+57
+53
+64
+53
+59
+54
+66
+54
+61
+55
+68
+55
+63
+Ultra Pulse Velocity Test
+We'll manually enter the location of the test, type, distance, time and grade of concrete. The system should auto-calculate the average velocity and condition based on the ranges shown in the attached image.
+Half Cell Potential Test
+We'll manually enter the location of the test, HCP readings (grid size varies: 6, 9, 12 or 15). The system should auto-calculate the average HCP number and Percentage of HCP based on the ranges shown in the attached image.
+Carbonation Depth
+Format for Carbonation Depth Test – We will enter all the details manually.
+Cover Meter
+               Format for Cover Meter Test – We will enter all the details manually. The system should auto-calculate the average value.
+Pull Out Test
+We'll manually enter the location of the test, Depth of Anchor, Dia of anchor and load applied; the system should auto-calculate the surface length [ π * Dia of anchor], Surface area [Surface length * Depth of anchor] and the pull-out strength [Load applied / Surface area].
+Core Cutting Test
+Format for Core Cutting Test – We will enter all the details manually.
+Cause confirmation after testing – We will enter manually.
+Repeat of inspection after may be one year or three years along with testing work provision should be made.
+It should be saved in such a way that past & current data is visible and can be printed out whenever required. 
+Future provision of repairs done or not done for previous recommendations should be there.
+Chemical Analysis
+                     We will manually attach the file (from the NABL Lab) to the report.
+Ultrasonic Thickness Guage Test
+S.No
+Test Location
+Actual Thickness
+Measured Thickness
+Percentage of loss
+1
+On chimney shell 15 east face
+10 mm 
+8mm 
+20 %
+2
+On chimney shell 18 North face
+10 mm 
+7.5 mm
+25 %
+We will manually enter the test location, Actual thickness (by structural drawing) & Measured thickness (UTG test outcome). 
+The system should auto-calculate the Percentage of loss = Actual thickness−Measured thickness / Actual thickness ×100
+Liquid Penetration / Dye Penetration Test
+            We will enter all the details manually.
+Portable Hardness Test
+       We will enter all the details manually.

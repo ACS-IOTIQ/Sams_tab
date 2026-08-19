@@ -1,0 +1,25 @@
+{
+  "test_name": "rebound_hammer",
+  "component_type": "structure",
+  "component_id": "structure_main",
+  "test_date": "2026-05-16",
+  "tested_by": "TestEngineer",
+  "remarks": "Scenario test via API",
+  "test_results": {
+    "entries": [
+      {
+        "location": "Column C1",
+        "member": "Column",
+        "degrees": "0",
+        "grid_size": 6,
+        "readings": [28, 30, 31, 29, 32, 30],
+        "avg_rebound_number": 30,
+        "estimated_strength_mpa": 23,
+        "remarks": "Uniform readings"
+      }
+    ],
+    "element_count": 1,
+    "avg_rebound_number": 30,
+    "estimated_strength_mpa": 23
+  }
+}
