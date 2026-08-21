@@ -463,11 +463,12 @@ class _StructuralNonstructuralratingState
       bottomNavigationBar: Consumer<AddstructureProvider>(
         builder: (context, addStructureProvider, child) {
           return FloatingActionBar(
+            fullWidth: true,
             children: [
               SizedBox(
-                width: 320.w,
+                width: double.infinity,
                 child: CustomButton(
-                  buttonText: "Save & Continue",
+                  buttonText: "Submit Inspection",
                   borderRadius: 10.r,
                   buttonColor: Appcolors.buttonColor,
                   buttonTextStyle: w700_15Poppins(color: Colors.white),
@@ -1300,6 +1301,22 @@ class _StructuralNonstructuralratingState
       savedNonStructuralRatings: savedNonStructuralRatings,
       savedStructuralTestingRequired: savedStructuralTestingRequired,
     );
+
+    for (final submission in pendingSubmissions) {
+      final structuralError = validateRatingsForSubmission(
+        submission.structuralRatings,
+      );
+      final nonStructuralError = validateRatingsForSubmission(
+        submission.nonStructuralRatings,
+      );
+      final validationError = structuralError ?? nonStructuralError;
+      if (validationError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(validationError)),
+        );
+        return false;
+      }
+    }
 
     try {
       for (final submission in pendingSubmissions) {

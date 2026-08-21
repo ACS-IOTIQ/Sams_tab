@@ -55,4 +55,25 @@ void main() {
       },
     );
   });
+
+  group('validateRatingsForSubmission', () {
+    test('allows optional dimensions and requires a No.s quantity', () {
+      final item = RatingItem(type: 'Beams')..rating = 5;
+
+      expect(
+        validateRatingsForSubmission({
+          'Beams': [item],
+        }),
+        contains('Please enter No.'),
+      );
+
+      item.numberController.text = '0';
+      expect(
+        validateRatingsForSubmission({
+          'Beams': [item],
+        }),
+        isNull,
+      );
+    });
+  });
 }

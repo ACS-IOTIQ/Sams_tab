@@ -8,10 +8,12 @@ class FloatingActionBar extends StatelessWidget {
     super.key,
     required this.children,
     this.bottomMargin,
+    this.fullWidth = false,
   });
 
   final List<Widget> children;
   final double? bottomMargin;
+  final bool fullWidth;
 
   static double contentBottomPadding(BuildContext context) {
     final viewPadding = MediaQuery.of(context).padding.bottom;
@@ -23,7 +25,13 @@ class FloatingActionBar extends StatelessWidget {
     final shortestSide = MediaQuery.of(context).size.shortestSide;
     final shouldScroll = shortestSide < 700;
 
-    final actionLayout = shouldScroll
+    final actionLayout = fullWidth
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
+          )
+        : shouldScroll
         ? SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(

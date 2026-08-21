@@ -10,6 +10,24 @@ import 'package:sams_engineering_console/models/get_all_ratings_floors_model.dar
 import 'package:sams_engineering_console/provider/common_provider.dart';
 import 'package:sams_engineering_console/utils/custom_toast.dart';
 
+/// Returns the first validation error for a rating collection, if any.
+/// Dimensions are deliberately optional; only the selected NO'S quantity is
+/// required because it is the measurement for that unit.
+String? validateRatingsForSubmission(Map<String, List<RatingItem>> ratings) {
+  for (final entry in ratings.entries) {
+    for (final item in entry.value) {
+      if (item.rating == null || item.rating! < 1 || item.rating! > 5) {
+        return 'Please enter valid ratings (1-5) for all items';
+      }
+      if (item.distressUnit == DistressMeasurementUnit.nos &&
+          item.numberController.text.trim().isEmpty) {
+        return 'Please enter No. for all items measured in No.s';
+      }
+    }
+  }
+  return null;
+}
+
 class AddRatingsStructureProvider extends ChangeNotifier {
   static const String baseUrl = 'https://sams.acstechnologies.co.in';
 
@@ -18,7 +36,14 @@ class AddRatingsStructureProvider extends ChangeNotifier {
 
   Map<String, dynamic> _buildDistressDimensionsPayload(RatingItem item) {
     final unit = item.distressUnit;
-    final length = double.tryParse(item.lengthController.text.trim()) ?? 0;
+    // A count is entered separately from physical dimensions.
+    final length = double.tryParse(
+          (unit == DistressMeasurementUnit.nos
+                  ? item.numberController.text
+                  : item.lengthController.text)
+              .trim(),
+        ) ??
+        0;
     final breadth = double.tryParse(item.widthController.text.trim()) ?? 0;
     final height = double.tryParse(item.heightController.text.trim()) ?? 0;
 
@@ -45,7 +70,14 @@ class AddRatingsStructureProvider extends ChangeNotifier {
           "unit": unit.apiValue,
         };
       case DistressMeasurementUnit.nos:
-        return {"length": 0, "breadth": 0, "height": 0, "unit": unit.apiValue};
+        return {
+          // Keep count distinct from physical dimensions.
+          "number": length,
+          "length": 0,
+          "breadth": 0,
+          "height": 0,
+          "unit": unit.apiValue,
+        };
     }
   }
 
@@ -217,6 +249,10 @@ class AddRatingsStructureProvider extends ChangeNotifier {
       ratingItem.distressUnit = DistressMeasurementUnitX.fromApiValue(
         item.distressDimensions.unit,
       );
+      if (ratingItem.distressUnit == DistressMeasurementUnit.nos) {
+        ratingItem.numberController.text =
+            item.distressDimensions.number?.toString() ?? '';
+      }
 
       // Add as single-item list
       structuralRatingMap[type] = [ratingItem];
@@ -277,6 +313,10 @@ class AddRatingsStructureProvider extends ChangeNotifier {
       ratingItem.distressUnit = DistressMeasurementUnitX.fromApiValue(
         item.distressDimensions.unit,
       );
+      if (ratingItem.distressUnit == DistressMeasurementUnit.nos) {
+        ratingItem.numberController.text =
+            item.distressDimensions.number?.toString() ?? '';
+      }
 
       nonStructuralRatingMap[type] = [ratingItem];
     }
@@ -348,6 +388,10 @@ class AddRatingsStructureProvider extends ChangeNotifier {
           ratingItem.distressUnit = DistressMeasurementUnitX.fromApiValue(
             item.distressDimensions.unit,
           );
+          if (ratingItem.distressUnit == DistressMeasurementUnit.nos) {
+            ratingItem.numberController.text =
+                item.distressDimensions.number?.toString() ?? '';
+          }
 
           // ✅ FIXED: Handle photos from API and build full URLs
           print('   📸 Photo data for ${item.name}:');
@@ -453,6 +497,10 @@ class AddRatingsStructureProvider extends ChangeNotifier {
           ratingItem.distressUnit = DistressMeasurementUnitX.fromApiValue(
             item.distressDimensions.unit,
           );
+          if (ratingItem.distressUnit == DistressMeasurementUnit.nos) {
+            ratingItem.numberController.text =
+                item.distressDimensions.number?.toString() ?? '';
+          }
 
           // ✅ FIXED: Handle photos from API and build full URLs
           print('   📸 Photo data for ${item.name}:');
@@ -1262,6 +1310,7 @@ class RatingItem {
   TextEditingController heightController = TextEditingController();
   TextEditingController lengthController = TextEditingController();
   TextEditingController widthController = TextEditingController();
+  TextEditingController numberController = TextEditingController();
   TextEditingController repairMethodologyController =
       TextEditingController(); // ✅ Added controller
 
@@ -1277,6 +1326,7 @@ class RatingItem {
     heightController.dispose();
     lengthController.dispose();
     widthController.dispose();
+    numberController.dispose();
     repairMethodologyController.dispose();
   }
 }

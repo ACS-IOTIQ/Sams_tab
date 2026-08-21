@@ -16,7 +16,6 @@ import 'package:sams_engineering_console/utils/common_textformfield.dart';
 import 'package:sams_engineering_console/provider/add_structure_ratings_provider.dart';
 import 'package:sams_engineering_console/provider/get_structure_provider.dart';
 import 'package:sams_engineering_console/utils/custom_toast.dart';
-import 'package:sams_engineering_console/utils/form_validations.dart';
 import 'package:sams_engineering_console/utils/images.dart';
 
 class StructuralRating extends StatefulWidget {
@@ -95,6 +94,7 @@ class _StructuralRatingState extends State<StructuralRating> {
         'Bracings',
         'Purlins',
         'Channels',
+        'Steel Flooring',
       ];
     } else {
       // Default to RCC
@@ -578,21 +578,11 @@ class _StructuralRatingState extends State<StructuralRating> {
       listen: false,
     );
 
-    bool hasErrors = false;
-    for (var entry in provider.structuralRatingMap.entries) {
-      for (var item in entry.value) {
-        if (item.rating == null || item.rating! < 1 || item.rating! > 5) {
-          hasErrors = true;
-          break;
-        }
-      }
-      if (hasErrors) break;
-    }
-
-    if (hasErrors) {
-      CustomToast.showErrorToast(
-        msg: "Please enter valid ratings (1-5) for all items",
-      );
+    final validationError = validateRatingsForSubmission(
+      provider.structuralRatingMap,
+    );
+    if (validationError != null) {
+      CustomToast.showErrorToast(msg: validationError);
       return;
     }
 
@@ -841,6 +831,21 @@ class _StructuralRatingState extends State<StructuralRating> {
                 type: type,
                 item: item,
               ),
+              if (item.distressUnit == DistressMeasurementUnit.nos) ...[
+                width5,
+                numberField(
+                  label: 'No.',
+                  controller: item.numberController,
+                  keyboardtype: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  validator: (val, String? f) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Please enter No.';
+                    }
+                    return null;
+                  },
+                ),
+              ],
               if (item.distressUnit != DistressMeasurementUnit.nos) ...[
                 width5,
                 numberField(
@@ -853,12 +858,7 @@ class _StructuralRatingState extends State<StructuralRating> {
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                   ],
-                  validator: (val, String? f) {
-                    return FormValidations.requiredFieldValidation(
-                      val,
-                      "Please enter length",
-                    );
-                  },
+                  validator: (val, String? f) => null,
                 ),
                 if (item.distressUnit != DistressMeasurementUnit.rm) ...[
                   width5,
@@ -872,12 +872,7 @@ class _StructuralRatingState extends State<StructuralRating> {
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                     ],
-                    validator: (val, String? f) {
-                      return FormValidations.requiredFieldValidation(
-                        val,
-                        "Please enter breadth",
-                      );
-                    },
+                    validator: (val, String? f) => null,
                   ),
                 ],
               ],
@@ -893,12 +888,7 @@ class _StructuralRatingState extends State<StructuralRating> {
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                   ],
-                  validator: (val, String? f) {
-                    return FormValidations.requiredFieldValidation(
-                      val,
-                      "Please enter height",
-                    );
-                  },
+                  validator: (val, String? f) => null,
                 ),
               ],
               width5,
@@ -1344,29 +1334,22 @@ class _StructuralRatingState extends State<StructuralRating> {
     }
   }
 
-  List<String> _getDistressOptions(String componentType) {
+  List<String> _getDistressOptions(String _) {
     final isSteel = widget.selectedStructureSubType.toLowerCase() == 'steel';
     if (!isSteel) {
       return const ['physical', 'chemical', 'mechanical', 'none'];
     }
 
-    final isPrimarySteel =
-        componentType == 'Foundation' ||
-        componentType == 'Columns' ||
-        componentType == 'Beams';
-    if (isPrimarySteel) {
-      return const [
-        'physical',
-        'chemical',
-        'mechanical',
-        'corrosion',
-        'section_loss',
-        'warping',
-        'none',
-      ];
-    }
-
-    return const ['corrosion', 'section_loss', 'warping', 'none'];
+    // Every steel member uses the same complete distress catalogue.
+    return const [
+      'physical',
+      'chemical',
+      'mechanical',
+      'corrosion',
+      'section_loss',
+      'warping',
+      'none',
+    ];
   }
 
   String _distressLabel(String value) {

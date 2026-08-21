@@ -408,12 +408,14 @@ class BrickPlasterFloor {
 }
 
 class DistressDimensions {
+  double? number;
   double length;
   double? breadth; // ✅ Made nullable
   double? height; // ✅ Made nullable
   String unit;
 
   DistressDimensions({
+    this.number,
     required this.length,
     this.breadth, // ✅ Optional
     this.height, // ✅ Optional
@@ -423,6 +425,7 @@ class DistressDimensions {
   factory DistressDimensions.fromJson(
     Map<String, dynamic> json,
   ) => DistressDimensions(
+    number: (json["number"] is num) ? (json["number"] as num).toDouble() : null,
     length: (json["length"] is num) ? (json["length"] as num).toDouble() : 0,
     breadth: (json["breadth"] is num)
         ? (json["breadth"] as num).toDouble()
@@ -432,6 +435,7 @@ class DistressDimensions {
   );
 
   Map<String, dynamic> toJson() => {
+    "number": number,
     "length": length,
     "breadth": breadth,
     "height": height,
