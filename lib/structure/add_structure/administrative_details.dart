@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import 'package:sams_engineering_console/provider/add_structure_provider.dart';
 import 'package:sams_engineering_console/provider/get_structure_provider.dart';
 import 'package:sams_engineering_console/structure/add_structure/geometric_details.dart';
-import 'package:sams_engineering_console/utils/app_colors.dart';
-import 'package:sams_engineering_console/utils/app_fonts.dart';
-import 'package:sams_engineering_console/utils/common_textformfield.dart';
-import 'package:sams_engineering_console/utils/custom_botton.dart';
-import 'package:sams_engineering_console/utils/floating_action_bar.dart';
+import 'package:sams_engineering_console/utils/form_kit.dart';
 import 'package:sams_engineering_console/utils/form_validations.dart';
+import 'package:sams_engineering_console/utils/wizard_scaffold.dart';
 
 class AdministrativeGeometricdetails extends StatefulWidget {
   const AdministrativeGeometricdetails({
@@ -101,36 +97,31 @@ class _AdministrativeGeometricdetailsState
     super.dispose();
   }
 
-  Widget commonTextField({
+  Widget _field({
     required String label,
     required TextEditingController controller,
     TextInputType? keyboardType,
     Widget? icon,
     int? maxLength,
+    bool isRequired = true,
     String? Function(String?, String)? validator,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("$label:", style: w500_15Poppins()),
-        SizedBox(height: 5.h),
-        SizedBox(
-          height: 40.h,
-          width: MediaQuery.of(context).size.width * 0.33,
-          child: CommonTextFormField(
-            fillColor: Appcolors.textformFillColor,
-            borderColor: Colors.grey.shade400,
-            controller: controller,
-            hintText: "Enter $label",
-            maxLength: maxLength,
-            validator: validator,
-            keyboardType: keyboardType,
-            labelStyle: w400_15Poppins(),
-            hintStyle: w400_14Poppins(),
-            suffixIcon: icon,
-          ),
-        ),
-      ],
+    return LabeledField(
+      label: label,
+      isRequired: isRequired,
+      child: FormTextField(
+        controller: controller,
+        hintText: "Enter ${label.toLowerCase()}",
+        maxLength: maxLength,
+        validator: validator,
+        keyboardType: keyboardType,
+        prefixIcon: icon == null
+            ? null
+            : IconTheme(
+                data: const IconThemeData(size: 18, color: FormKit.hintColor),
+                child: icon,
+              ),
+      ),
     );
   }
 
@@ -154,216 +145,117 @@ class _AdministrativeGeometricdetailsState
           _isDataLoaded = true;
         }
 
-        return Scaffold(
-          backgroundColor: Colors.grey.shade100,
-          body: Form(
-            key: _formKey,
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  10,
-                  10,
-                  10,
-                  FloatingActionBar.contentBottomPadding(context),
-                ),
-                child: Column(
+        void goToGeometric() {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => Geometricdetails(
+                structureId: widget.structureId,
+                selectedStructureType: widget.selectedStructureType,
+                selectedCommercialType: widget.selectedCommercialType,
+                selectedStructureSubType: widget.selectedStructureSubType,
+              ),
+            ),
+          );
+        }
+
+        return Consumer<AddstructureProvider>(
+          builder: (context, addProvider, _) {
+            return WizardScaffold(
+              title: "Administrative Details",
+              subtitle: "Step 2 of 4",
+              appBarActions: [
+                if (hasExistingAdminData) WizardSkipButton(onTap: goToGeometric),
+              ],
+              onNext: () async {
+                if (_formKey.currentState?.validate() ?? false) {
+                  final existing = getstructureProvider
+                      .getAdminstrativeDetailsByStrIdModel
+                      ?.data
+                      ?.administration;
+
+                  await addProvider.submitAdministrativeData(
+                    context,
+                    clientNameController.text,
+                    custodianController.text,
+                    engineerDesignationController.text,
+                    contactController.text,
+                    emailController.text,
+                    widget.structureId,
+                    existing != null,
+                  );
+
+                  if (!mounted) return;
+                  goToGeometric();
+                }
+              },
+              body: Form(
+                key: _formKey,
+                child: FormCard(
+                  title: "Who is this structure for?",
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          /// 🔹 Header
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                "Administrative Details",
-                                style: w700_20Poppins(),
-                              ),
-
-                              if (hasExistingAdminData)
-                                CustomButton(
-                                  buttonText: "Skip",
-                                  borderRadius: 10.r,
-                                  buttonColor: Colors.transparent,
-                                  buttonTextStyle: w700_15Poppins(
-                                    color: Appcolors.buttonColor,
-                                  ),
-                                  width: 60.w,
-                                  height: 30.h,
-                                  borderColor: Appcolors.buttonColor,
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => Geometricdetails(
-                                          structureId: widget.structureId,
-                                          selectedStructureType:
-                                              widget.selectedStructureType,
-                                          selectedCommercialType:
-                                              widget.selectedCommercialType,
-                                          selectedStructureSubType:
-                                              widget.selectedStructureSubType,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                            ],
+                    FormGrid(
+                      children: [
+                        _field(
+                          label: "Client Name",
+                          controller: clientNameController,
+                          validator: (val, _) =>
+                              FormValidations.requiredFieldValidation(
+                            val,
+                            "Enter client name",
                           ),
-
-                          SizedBox(height: 15.h),
-
-                          /// 🔹 Fields
-                          Row(
-                            children: [
-                              commonTextField(
-                                label: "Client Name",
-                                controller: clientNameController,
-                                validator: (val, _) =>
-                                    FormValidations.requiredFieldValidation(
-                                      val,
-                                      "Enter client name",
-                                    ),
-                                icon: Icon(Icons.person),
-                              ),
-                              SizedBox(width: 10.w),
-                              commonTextField(
-                                label: "Custodian",
-                                controller: custodianController,
-                                validator: (val, _) =>
-                                    FormValidations.requiredFieldValidation(
-                                      val,
-                                      "Enter custodian",
-                                    ),
-                                icon: Icon(Icons.person_outline),
-                              ),
-                            ],
+                          icon: const Icon(Icons.person_outline),
+                        ),
+                        _field(
+                          label: "Custodian",
+                          controller: custodianController,
+                          validator: (val, _) =>
+                              FormValidations.requiredFieldValidation(
+                            val,
+                            "Enter custodian",
                           ),
-
-                          SizedBox(height: 10.h),
-
-                          Row(
-                            children: [
-                              commonTextField(
-                                label: "Engineer Designation",
-                                controller: engineerDesignationController,
-                                validator: (val, _) =>
-                                    FormValidations.requiredFieldValidation(
-                                      val,
-                                      "Enter designation",
-                                    ),
-                                icon: Icon(Icons.engineering),
-                              ),
-                              SizedBox(width: 10.w),
-                              commonTextField(
-                                label: "Contact",
-                                controller: contactController,
-                                maxLength: 10,
-                                keyboardType: TextInputType.phone,
-                                validator: (val, String? f) =>
-                                    FormValidations.phoneNoValidation(
-                                      contactController.text,
-                                      "Enter valid contact",
-                                    ),
-                                icon: Icon(Icons.phone),
-                              ),
-                            ],
+                          icon: const Icon(Icons.shield_outlined),
+                        ),
+                        _field(
+                          label: "Engineer Designation",
+                          controller: engineerDesignationController,
+                          validator: (val, _) =>
+                              FormValidations.requiredFieldValidation(
+                            val,
+                            "Enter designation",
                           ),
-
-                          SizedBox(height: 10.h),
-
-                          commonTextField(
-                            label: "Email",
-                            controller: emailController,
-                            validator: (val, String? f) =>
-                                FormValidations.emailValidation(
-                                  emailController.text,
-                                  "Please enter email id",
-                                ),
-                            icon: Icon(Icons.email),
+                          icon: const Icon(Icons.engineering_outlined),
+                        ),
+                        _field(
+                          label: "Contact",
+                          controller: contactController,
+                          maxLength: 10,
+                          keyboardType: TextInputType.phone,
+                          validator: (val, String? f) =>
+                              FormValidations.phoneNoValidation(
+                            contactController.text,
+                            "Enter valid contact",
                           ),
-                        ],
-                      ),
+                          icon: const Icon(Icons.phone_outlined),
+                        ),
+                        _field(
+                          label: "Email",
+                          controller: emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (val, String? f) =>
+                              FormValidations.emailValidation(
+                            emailController.text,
+                            "Please enter email id",
+                          ),
+                          icon: const Icon(Icons.mail_outline_rounded),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-            ),
-          ),
-
-          /// 🔹 Bottom Buttons
-          extendBody: true,
-          bottomNavigationBar: Consumer<AddstructureProvider>(
-            builder: (context, addProvider, child) {
-              return FloatingActionBar(
-                children: [
-                  CustomButton(
-                    buttonText: "Back",
-                    borderRadius: 10.r,
-                    buttonColor: Colors.transparent,
-                    buttonTextStyle: w700_15Poppins(
-                      color: Appcolors.buttonColor,
-                    ),
-                    width: 140.w,
-                    height: 40.h,
-                    borderColor: Appcolors.buttonColor,
-                    onTap: () => Navigator.pop(context),
-                  ),
-                  CustomButton(
-                    buttonText: "Next",
-                    borderRadius: 10.r,
-                    buttonColor: Appcolors.buttonColor,
-                    buttonTextStyle: w700_15Poppins(color: Colors.white),
-                    width: 160.w,
-                    height: 40.h,
-                    borderColor: Appcolors.buttonColor,
-                    onTap: () async {
-                      if (_formKey.currentState?.validate() ?? false) {
-                        final adminData = getstructureProvider
-                            .getAdminstrativeDetailsByStrIdModel
-                            ?.data
-                            ?.administration;
-
-                        final isUpdate = adminData != null;
-
-                        await addProvider.submitAdministrativeData(
-                          context,
-                          clientNameController.text,
-                          custodianController.text,
-                          engineerDesignationController.text,
-                          contactController.text,
-                          emailController.text,
-                          widget.structureId,
-                          isUpdate,
-                        );
-
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => Geometricdetails(
-                              structureId: widget.structureId,
-                              selectedStructureType:
-                                  widget.selectedStructureType,
-                              selectedCommercialType:
-                                  widget.selectedCommercialType,
-                              selectedStructureSubType:
-                                  widget.selectedStructureSubType,
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                ],
-              );
-            },
-          ),
+            );
+          },
         );
       },
     );

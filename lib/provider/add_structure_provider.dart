@@ -174,7 +174,10 @@ class AddstructureProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> submitLocationData(
+  /// Returns true only when the server accepted the location. Callers must not
+  /// advance the wizard on false — every failure path here used to return
+  /// quietly, so a rejected save looked identical to a successful one.
+  Future<bool> submitLocationData(
     BuildContext context,
     String state,
     String zipcode,
@@ -214,7 +217,10 @@ class AddstructureProvider extends ChangeNotifier {
 
     if (lat == null || lon == null) {
       print('Invalid latitude or longitude');
-      return;
+      CustomToast.showErrorToast(
+        msg: "Latitude and longitude must be valid numbers.",
+      );
+      return false;
     }
 
     final token = Provider.of<CommonProvider>(
@@ -262,20 +268,47 @@ class AddstructureProvider extends ChangeNotifier {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         print('Success: ${response.body}');
-        isUpdate
-            ? CustomToast.showSuccessToast(
-                msg: "Location details saved succesfully",
-              )
-            : CustomToast.showSuccessToast(
-                msg: "Location details added succesfully",
-              );
-      } else {
-        print('Failed: ${response.statusCode}');
-        print('Response: ${response.body}');
+        CustomToast.showSuccessToast(
+          msg: isUpdate
+              ? "Location details saved succesfully"
+              : "Location details added succesfully",
+        );
+        return true;
       }
+
+      print('Failed: ${response.statusCode}');
+      print('Response: ${response.body}');
+      CustomToast.showErrorToast(
+        msg: _errorMessageFrom(
+          response.body,
+          fallback: "Could not save location details (${response.statusCode}).",
+        ),
+      );
+      return false;
     } catch (e) {
       print('Error: $e');
+      CustomToast.showErrorToast(
+        msg: "Could not save location details. Check your connection.",
+      );
+      return false;
     }
+  }
+
+  /// Pulls the server's own message out of an error body when it has one, so
+  /// the user sees why a save was rejected rather than a bare status code.
+  String _errorMessageFrom(String body, {required String fallback}) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map) {
+        for (final key in const ['message', 'error', 'detail']) {
+          final value = decoded[key];
+          if (value is String && value.trim().isNotEmpty) return value.trim();
+        }
+      }
+    } catch (_) {
+      // Body wasn't JSON — fall through to the generic message.
+    }
+    return fallback;
   }
 
   Future<void> submitGeometricData(

@@ -9,8 +9,7 @@ import 'package:sams_engineering_console/structure/add_structure/nonstructural_r
 import 'package:sams_engineering_console/structure/add_structure/structural_rating_revised.dart';
 import 'package:sams_engineering_console/utils/app_colors.dart';
 import 'package:sams_engineering_console/utils/app_fonts.dart';
-import 'package:sams_engineering_console/utils/custom_botton.dart';
-import 'package:sams_engineering_console/utils/floating_action_bar.dart';
+import 'package:sams_engineering_console/utils/wizard_scaffold.dart';
 import 'package:sams_engineering_console/utils/module_header.dart';
 
 class PendingRatingSubmission {
@@ -148,6 +147,9 @@ class StructuralNonstructuralrating extends StatefulWidget {
 class _StructuralNonstructuralratingState
     extends State<StructuralNonstructuralrating>
     with TickerProviderStateMixin {
+  /// Guards the submit button while a submission is in flight.
+  bool _isSubmitting = false;
+
   late final TabController _tabController;
   late GetstructureProvider getstructureProvider;
 
@@ -431,7 +433,6 @@ class _StructuralNonstructuralratingState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      extendBody: true,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -454,36 +455,27 @@ class _StructuralNonstructuralratingState
           child: Container(color: Colors.grey.shade200, height: 1),
         ),
       ),
-      body: Padding(
-        padding: EdgeInsets.only(
-          bottom: FloatingActionBar.contentBottomPadding(context),
-        ),
-        child: _buildBody(),
-      ),
+      body: _buildBody(),
       bottomNavigationBar: Consumer<AddstructureProvider>(
         builder: (context, addStructureProvider, child) {
-          return FloatingActionBar(
-            fullWidth: true,
-            children: [
-              SizedBox(
-                width: double.infinity,
-                child: CustomButton(
-                  buttonText: "Submit Inspection",
-                  borderRadius: 10.r,
-                  buttonColor: Appcolors.buttonColor,
-                  buttonTextStyle: w700_15Poppins(color: Colors.white),
-                  height: 40.h,
-                  onTap: () async {
-                    final submitted = await _submitPendingRatings();
-                    if (!submitted) return;
-                    await addStructureProvider.submitStructure(
-                      context,
-                      widget.structureId,
-                    );
+          return WizardActionBar(
+            nextLabel: "Submit Inspection",
+            isBusy: _isSubmitting,
+            onNext: _isSubmitting
+                ? null
+                : () async {
+                    setState(() => _isSubmitting = true);
+                    try {
+                      final submitted = await _submitPendingRatings();
+                      if (!submitted) return;
+                      await addStructureProvider.submitStructure(
+                        context,
+                        widget.structureId,
+                      );
+                    } finally {
+                      if (mounted) setState(() => _isSubmitting = false);
+                    }
                   },
-                ),
-              ),
-            ],
           );
         },
       ),

@@ -2,21 +2,18 @@
 
 import 'dart:io';
 
-import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
-import 'package:sams_engineering_console/utils/app_colors.dart';
 import 'package:sams_engineering_console/utils/app_fonts.dart';
-import 'package:sams_engineering_console/utils/common_textformfield.dart';
 import 'package:sams_engineering_console/provider/add_structure_ratings_provider.dart';
+import 'package:sams_engineering_console/utils/form_kit.dart';
+import 'package:sams_engineering_console/utils/radio_group_dropdown.dart';
 import 'package:sams_engineering_console/provider/get_structure_provider.dart';
 import 'package:sams_engineering_console/utils/custom_toast.dart';
-import 'package:sams_engineering_console/utils/images.dart';
 
 class NonStructuralRating extends StatefulWidget {
   final String structureId;
@@ -203,73 +200,18 @@ class _NonStructuralRatingState extends State<NonStructuralRating> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (availableOptions.isNotEmpty) ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton2<String>(
-                            isExpanded: true,
-                            hint: Text(
-                              'Select Item',
-                              style: w400_15Poppins(),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            items: availableOptions
-                                .map(
-                                  (type) => DropdownMenuItem<String>(
-                                    value: type,
-                                    child: Text(
-                                      type,
-                                      style: w400_15Poppins(),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                            value: null,
-                            onChanged: (value) {
-                              if (value != null) {
-                                provider.addNonStructuralStructureType(value);
-                              }
-                            },
-                            buttonStyleData: ButtonStyleData(
-                              height: 30.h,
-                              width: MediaQuery.of(context).size.width * 0.35,
-                              padding: const EdgeInsets.only(
-                                left: 14,
-                                right: 14,
-                              ),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.shade400),
-                                color: Appcolors.textformFillColor,
-                              ),
-                              elevation: 0,
-                            ),
-                            iconStyleData: const IconStyleData(
-                              icon: Icon(Icons.arrow_drop_down),
-                              iconSize: 24,
-                            ),
-                            dropdownStyleData: DropdownStyleData(
-                              maxHeight: 200,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                color: Appcolors.textformFillColor,
-                              ),
-                              scrollbarTheme: ScrollbarThemeData(
-                                radius: const Radius.circular(40),
-                                thickness: WidgetStateProperty.all(6),
-                                thumbVisibility: WidgetStateProperty.all(true),
-                              ),
-                            ),
-                            menuItemStyleData: const MenuItemStyleData(
-                              height: 40,
-                              padding: EdgeInsets.only(left: 14, right: 14),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  LabeledField(
+                    label: 'Add a non-structural element',
+                    child: RadioGroupDropdown<String>(
+                      options: radioOptionsFromStrings(availableOptions),
+                      value: null,
+                      hintText: 'Select item',
+                      sheetTitle: 'Add a non-structural element',
+                      onChanged: (value) {
+                        if (value == null) return;
+                        provider.addNonStructuralStructureType(value);
+                      },
+                    ),
                   ),
                   const SizedBox(height: 20),
                 ],
@@ -461,157 +403,80 @@ class _NonStructuralRatingState extends State<NonStructuralRating> {
             ],
           ),
 
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.2,
-                    height: 32.h,
-                    child: CommonTextFormField(
-                      controller: item.ratingController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(1),
-                      ],
-                      fillColor: Appcolors.textformFillColor,
-                      borderColor: Colors.grey.shade400,
-                      hintText: "Rating",
-                      hintStyle: w400_15Poppins(),
-                      validator: (value, hintText) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a rating';
-                        }
-                        final intValue = int.tryParse(value);
-                        if (intValue == null || intValue < 1 || intValue > 5) {
-                          return 'Rating must be between 1 and 5';
-                        }
-                        return null;
-                      },
-                      onChanged: (value) {
-                        final validatedValue = _validateAndConvertRating(value);
-                        item.rating = validatedValue;
-                        provider.notifyListeners();
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.23,
-                    height: 32.h,
-                    child: CommonTextFormField(
-                      controller: item.commentController,
-                      fillColor: Appcolors.textformFillColor,
-                      borderColor: Colors.grey.shade400,
-                      hintText: "Enter comment",
-                      hintStyle: w400_15Poppins(),
-                      onChanged: (value) {
-                        item.comment = value;
-                        provider.notifyListeners();
-                      },
-                    ),
-                  ),
-                  const Spacer(),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 46,
-                        height: 46,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.add_a_photo, size: 28),
-                              onPressed: () =>
-                                  _showImageSourceDialog(provider, type, index),
-                              tooltip: 'Upload images',
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.blue.shade50,
-                                padding: const EdgeInsets.all(8),
-                              ),
-                            ),
-                            if (item.files != null && item.files!.isNotEmpty)
-                              Positioned(
-                                right: 0,
-                                top: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.green,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Text(
-                                    '${item.files!.length}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Container(
-                        width: 46,
-                        height: 46,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.attach_file, size: 28),
-                              onPressed: () =>
-                                  _pickDocuments(provider, type, index),
-                              tooltip: 'Upload PDF/Excel',
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.orange.shade50,
-                                padding: const EdgeInsets.all(8),
-                              ),
-                            ),
-                            if (item.docFiles != null &&
-                                item.docFiles!.isNotEmpty)
-                              Positioned(
-                                right: 0,
-                                top: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.orange,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Text(
-                                    '${item.docFiles!.length}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            },
+          FormGrid(
+            children: [
+              LabeledField(
+                label: 'Rating (1-5)',
+                isRequired: true,
+                child: FormTextField(
+                  controller: item.ratingController,
+                  keyboardType: TextInputType.number,
+                  hintText: 'Rating',
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(1),
+                  ],
+                  validator: (value, hintText) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter a rating';
+                    }
+                    final intValue = int.tryParse(value);
+                    if (intValue == null || intValue < 1 || intValue > 5) {
+                      return 'Rating must be between 1 and 5';
+                    }
+                    return null;
+                  },
+                  onChanged: (value) {
+                    final validatedValue = _validateAndConvertRating(value);
+                    item.rating = validatedValue;
+                    provider.notifyListeners();
+                  },
+                ),
+              ),
+              LabeledField(
+                label: 'Comment',
+                child: FormTextField(
+                  controller: item.commentController,
+                  hintText: 'Enter comment',
+                  onChanged: (value) {
+                    item.comment = value;
+                    provider.notifyListeners();
+                  },
+                ),
+              ),
+            ],
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: FormKit.rowGap),
 
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AttachmentButton(
+                icon: Icons.add_a_photo_outlined,
+                label: 'Photos',
+                count: item.files?.length ?? 0,
+                badgeColor: Colors.green,
+                onTap: () => _showImageSourceDialog(provider, type, index),
+              ),
+              const SizedBox(width: 10),
+              AttachmentButton(
+                icon: Icons.attach_file_rounded,
+                label: 'Documents',
+                count: item.docFiles?.length ?? 0,
+                badgeColor: Colors.orange,
+                onTap: () => _pickDocuments(provider, type, index),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: FormKit.rowGap),
+
+          FormGrid(
+            columns: 3,
+            minItemWidth: 170,
             children: [
               _buildDistressUnitDropdown(provider: provider, item: item),
-              if (item.distressUnit == DistressMeasurementUnit.nos) ...[
-                width5,
+              if (item.distressUnit == DistressMeasurementUnit.nos)
                 numberField(
                   label: 'No.',
                   controller: item.numberController,
@@ -624,9 +489,7 @@ class _NonStructuralRatingState extends State<NonStructuralRating> {
                     return null;
                   },
                 ),
-              ],
               if (item.distressUnit != DistressMeasurementUnit.nos) ...[
-                width5,
                 numberField(
                   label: "Length",
                   unitLabel: 'm',
@@ -639,8 +502,7 @@ class _NonStructuralRatingState extends State<NonStructuralRating> {
                   ],
                   validator: (val, String? f) => null,
                 ),
-                if (item.distressUnit != DistressMeasurementUnit.rm) ...[
-                  width5,
+                if (item.distressUnit != DistressMeasurementUnit.rm)
                   numberField(
                     label: "Breadth",
                     unitLabel: 'm',
@@ -653,10 +515,8 @@ class _NonStructuralRatingState extends State<NonStructuralRating> {
                     ],
                     validator: (val, String? f) => null,
                   ),
-                ],
               ],
-              if (item.distressUnit == DistressMeasurementUnit.cum) ...[
-                width5,
+              if (item.distressUnit == DistressMeasurementUnit.cum)
                 numberField(
                   label: "Height",
                   unitLabel: 'm',
@@ -669,28 +529,16 @@ class _NonStructuralRatingState extends State<NonStructuralRating> {
                   ],
                   validator: (val, String? f) => null,
                 ),
-              ],
-              width5,
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Repair Methodology", style: w400_12Poppins()),
-                  height5,
-                  SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.154,
-                    child: CommonTextFormField(
-                      controller: item.repairMethodologyController,
-                      fillColor: Appcolors.textformFillColor,
-                      borderColor: Colors.grey.shade400,
-                      hintText: "Enter repair",
-                      hintStyle: w400_15Poppins(),
-                      onChanged: (value) {
-                        item.repairMethodology = value;
-                        provider.notifyListeners();
-                      },
-                    ),
-                  ),
-                ],
+              LabeledField(
+                label: "Repair methodology",
+                child: FormTextField(
+                  controller: item.repairMethodologyController,
+                  hintText: "Enter repair",
+                  onChanged: (value) {
+                    item.repairMethodology = value;
+                    provider.notifyListeners();
+                  },
+                ),
               ),
             ],
           ),
@@ -1437,55 +1285,20 @@ class _NonStructuralRatingState extends State<NonStructuralRating> {
     required AddRatingsStructureProvider provider,
     required RatingItem item,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Units:", style: w500_15Poppins()),
-        height5,
-        SizedBox(
-          height: 28.h,
-          width: MediaQuery.of(context).size.width * 0.16,
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton2<DistressMeasurementUnit>(
-              isExpanded: true,
-              value: item.distressUnit,
-              items: DistressMeasurementUnit.values
-                  .map(
-                    (unit) => DropdownMenuItem<DistressMeasurementUnit>(
-                      value: unit,
-                      child: Text(unit.label, style: w400_12Poppins()),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                if (value == null) return;
-                provider.updateDistressUnit(item, value);
-              },
-              buttonStyleData: ButtonStyleData(
-                height: 28.h,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade400),
-                  color: Appcolors.textformFillColor,
-                ),
-              ),
-              iconStyleData: const IconStyleData(
-                icon: Icon(Icons.arrow_drop_down),
-                iconSize: 20,
-              ),
-              dropdownStyleData: DropdownStyleData(
-                maxHeight: 180,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: Colors.white,
-                ),
-              ),
-              menuItemStyleData: const MenuItemStyleData(height: 36),
-            ),
-          ),
-        ),
-      ],
+    return LabeledField(
+      label: "Units",
+      child: RadioGroupDropdown<DistressMeasurementUnit>(
+        options: DistressMeasurementUnit.values
+            .map((unit) => RadioOption(unit, unit.label))
+            .toList(),
+        value: item.distressUnit,
+        hintText: "Select unit",
+        sheetTitle: "Measurement unit",
+        onChanged: (value) {
+          if (value == null) return;
+          provider.updateDistressUnit(item, value);
+        },
+      ),
     );
   }
 
@@ -1497,54 +1310,16 @@ class _NonStructuralRatingState extends State<NonStructuralRating> {
     TextInputType? keyboardtype,
     List<TextInputFormatter>? inputFormatters,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          unitLabel == null ? "$label:" : "$label ($unitLabel):",
-          style: w500_15Poppins(),
-        ),
-        height5,
-        SizedBox(
-          height: 28.h,
-          width: MediaQuery.of(context).size.width * 0.15,
-          child: CommonTextFormField(
-            controller: controller,
-            fillColor: Appcolors.textformFillColor,
-            borderColor: Colors.grey.shade400,
-            validator: validator,
-            hintText: "Enter $label",
-            hintStyle: w400_14Poppins(),
-            keyboardType: keyboardtype,
-            inputFormatters: inputFormatters,
-            suffixIcon: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                GestureDetector(
-                  child: const Icon(Icons.arrow_drop_up),
-                  onTap: () {
-                    final val = double.tryParse(controller.text) ?? 0;
-                    final next = val + 1;
-                    controller.text = next % 1 == 0
-                        ? next.toInt().toString()
-                        : next.toString();
-                  },
-                ),
-                GestureDetector(
-                  child: const Icon(Icons.arrow_drop_down),
-                  onTap: () {
-                    final val = double.tryParse(controller.text) ?? 0;
-                    final next = val - 1;
-                    controller.text = next % 1 == 0
-                        ? next.toInt().toString()
-                        : next.toString();
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+    return LabeledField(
+      label: unitLabel == null ? label : "$label ($unitLabel)",
+      child: FormTextField(
+        controller: controller,
+        validator: validator,
+        hintText: "Enter ${label.toLowerCase()}",
+        keyboardType: keyboardtype,
+        inputFormatters: inputFormatters,
+        suffixIcon: NumberStepperSuffix(controller: controller),
+      ),
     );
   }
 

@@ -1,8 +1,4 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sams_engineering_console/models/get_all_structures_model.dart';
 import 'package:sams_engineering_console/provider/add_structure_provider.dart';
@@ -14,6 +10,84 @@ import 'package:sams_engineering_console/utils/app_colors.dart';
 import 'package:sams_engineering_console/utils/app_fonts.dart';
 import 'package:sams_engineering_console/utils/custom_toast.dart';
 import 'package:sams_engineering_console/utils/images.dart';
+
+// ─── Design tokens ─────────────────────────────────────────────────────────
+// NOTE: this screen intentionally uses raw doubles (no `.w`/`.h`/`.sp`) so
+// that on tablets flutter_screenutil doesn't scale chrome elements up to 2×
+// their intended size. On phones the numbers already match ScreenUtil's
+// unscaled values, so nothing changes there.
+class _T {
+  static const bg = Color(0xffF4F5F7);
+  static const surface = Color(0xffFFFFFF);
+  static const ink = Color(0xff1E293B);
+  static const ink2 = Color(0xff475569);
+  static const muted = Color(0xff94A3B8);
+  static const muted2 = Color(0xffCBD5E1);
+  static const line = Color(0xffE5E7EB);
+  static const line2 = Color(0xffF1F5F9);
+  static const primaryTint = Color(0xffE0E7EF);
+  static const primaryTint2 = Color(0xffDBE4F0);
+
+  static const successBg = Color(0xffDCFCE7);
+  static const successFg = Color(0xff15803D);
+  static const amberBg = Color(0xffFEF3C7);
+  static const amberFg = Color(0xff92400E);
+  static const slateBg = Color(0xffE2E8F0);
+  static const slateFg = Color(0xff475569);
+  static const infoBg = Color(0xffDBEAFE);
+  static const infoFg = Color(0xff1D4ED8);
+  static const dangerBg = Color(0xffFEE2E2);
+  static const dangerFg = Color(0xffDC2626);
+
+  // Modal sheets/dialogs still read better capped at a phone-ish width.
+  static const double maxDialogWidth = 460;
+}
+
+/// Horizontal page gutter, shared by the app bar and the list content so the
+/// two line up at every screen size. The page itself always fills the window —
+/// capping it left large empty margins on tablets.
+double contentGutter(double screenWidth) {
+  if (screenWidth >= 1100) return 32;
+  if (screenWidth >= 700) return 24;
+  return 14;
+}
+
+/// Cards are laid out in columns rather than stretched edge to edge, so a wide
+/// tablet fills its width without each card becoming one long thin strip.
+int contentColumns(double screenWidth) {
+  // Thresholds chosen so each column lands near the ~380-460dp the card was
+  // designed for: a 10" tablet gets 2 columns in portrait, 3 in landscape.
+  if (screenWidth >= 1200) return 3;
+  if (screenWidth >= 720) return 2;
+  return 1;
+}
+
+// ─── Filter enum ───────────────────────────────────────────────────────────
+enum _FilterKey {
+  all,
+  submitted,
+  completed,
+  underTesting,
+  draft,
+  residential,
+  commercial,
+}
+
+class _FilterDef {
+  const _FilterDef(this.key, this.label);
+  final _FilterKey key;
+  final String label;
+}
+
+const List<_FilterDef> _filterOrder = [
+  _FilterDef(_FilterKey.all, 'All'),
+  _FilterDef(_FilterKey.submitted, 'Submitted'),
+  _FilterDef(_FilterKey.completed, 'Completed'),
+  _FilterDef(_FilterKey.underTesting, 'Under testing'),
+  _FilterDef(_FilterKey.draft, 'Draft'),
+  _FilterDef(_FilterKey.residential, 'Residential'),
+  _FilterDef(_FilterKey.commercial, 'Commercial'),
+];
 
 class StructureList extends StatefulWidget {
   const StructureList({super.key, required this.userRole});
@@ -29,21 +103,28 @@ class _StructureListState extends State<StructureList> {
   late GetstructureProvider getstructureProvider;
   bool isLoading = false;
 
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+  _FilterKey _activeFilter = _FilterKey.all;
+
   bool get _showTestingColumn => widget.userRole.trim().toUpperCase() != "FE";
   String get _normalizedRole => widget.userRole.trim().toUpperCase();
+  bool get _isFE => _normalizedRole == "FE";
 
   @override
   void initState() {
     super.initState();
-    addstructureProvider = Provider.of<AddstructureProvider>(
-      context,
-      listen: false,
-    );
-    getstructureProvider = Provider.of<GetstructureProvider>(
-      context,
-      listen: false,
-    );
+    addstructureProvider =
+        Provider.of<AddstructureProvider>(context, listen: false);
+    getstructureProvider =
+        Provider.of<GetstructureProvider>(context, listen: false);
     _fetchPage(1);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchPage(int page) async {
@@ -63,6 +144,7 @@ class _StructureListState extends State<StructureList> {
     }
   }
 
+  // ── Filters ────────────────────────────────────────────────────────────
   List<Datum> _applyRoleFilter(List<Datum> structureList) {
     if (_normalizedRole == "VE" || _normalizedRole == "TE") {
       return structureList
@@ -72,6 +154,64 @@ class _StructureListState extends State<StructureList> {
     return structureList;
   }
 
+  bool _matchesFilter(Datum s, _FilterKey f) {
+    final status = s.status.trim().toLowerCase();
+    final type = s.typeOfStructure.trim().toLowerCase();
+    switch (f) {
+      case _FilterKey.all:
+        return true;
+      case _FilterKey.submitted:
+        return status == 'submitted';
+      case _FilterKey.completed:
+        return {'tested', 'validated', 'approved', 'completed'}.contains(status);
+      case _FilterKey.underTesting:
+        return status == 'under_testing' || status == 'in_testing';
+      case _FilterKey.draft:
+        return status.isEmpty || status == 'draft' || status == 'pending';
+      case _FilterKey.residential:
+        return type.contains('residential');
+      case _FilterKey.commercial:
+        return type.contains('commercial');
+    }
+  }
+
+  bool _matchesSearch(Datum s, String needle) {
+    if (needle.isEmpty) return true;
+    final n = needle.toLowerCase();
+    return [
+      s.structuralIdentityNumber,
+      s.clientName ?? '',
+      s.typeOfStructure,
+      s.location.cityName,
+      s.location.stateCode,
+      s.location.address,
+    ].any((v) => v.toLowerCase().contains(n));
+  }
+
+  List<Datum> _applyViewFilters(List<Datum> roleFiltered) {
+    final q = _query.trim();
+    return roleFiltered
+        .where((s) => _matchesFilter(s, _activeFilter) && _matchesSearch(s, q))
+        .toList();
+  }
+
+  Map<_FilterKey, int> _computeCounts(List<Datum> roleFiltered) {
+    final Map<_FilterKey, int> out = {};
+    for (final def in _filterOrder) {
+      out[def.key] =
+          roleFiltered.where((s) => _matchesFilter(s, def.key)).length;
+    }
+    return out;
+  }
+
+  DateTime? _lastUpdated(List<Datum> list) {
+    if (list.isEmpty) return null;
+    return list
+        .map((s) => s.timestamps.lastUpdatedDate)
+        .reduce((a, b) => a.isAfter(b) ? a : b);
+  }
+
+  // ── Card actions ───────────────────────────────────────────────────────
   void _openTestingScreen(Datum structure) {
     Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
@@ -111,190 +251,6 @@ class _StructureListState extends State<StructureList> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<GetstructureProvider>(
-      builder: (context, provider, child) {
-        final filteredList = _applyRoleFilter(provider.structureList);
-        final pagination = provider.structureData?.pagination;
-        final currentPage = pagination?.currentPage ?? 1;
-        final totalPages = pagination?.totalPages ?? 1;
-        final hasNextPage = pagination?.hasNextPage ?? false;
-        final hasPrevPage = pagination?.hasPrevPage ?? false;
-
-        if (isLoading && provider.structureData == null) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        return RefreshIndicator(
-          onRefresh: () => _fetchPage(1),
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(14.w, 8.h, 14.w, 18.h),
-            children: [
-              _StructureHeader(
-                userRole: _normalizedRole,
-                onOpenActions: _normalizedRole == "FE"
-                    ? () => _showStructureActionsMenu(filteredList)
-                    : null,
-              ),
-              SizedBox(height: 12.h),
-              if (filteredList.isEmpty)
-                SizedBox(
-                  height: 420.h,
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Image.asset(AppImages.emptyStructureList),
-                        height20,
-                        Text("No records available", style: w600_18Poppins()),
-                        height10,
-                        SizedBox(
-                          width: 330.w,
-                          child: Text(
-                            "Nothing to display. Create your first file to get started!",
-                            style: w400_15Poppins(),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else ...[
-                ...filteredList.map(
-                  (structure) => Padding(
-                    padding: EdgeInsets.only(bottom: 10.h),
-                    child: _StructureCard(
-                      structure: structure,
-                      downloadState: provider.reportDownloadStateFor(
-                        structure.structuralIdentityNumber.trim(),
-                      ),
-                      showEditButton: _normalizedRole == "FE",
-                      showTestingButton: _showTestingColumn,
-                      onOpenDetails: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => GetLocationdetails(
-                              structureId: structure.structureId,
-                            ),
-                          ),
-                        );
-                      },
-                      onEdit: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AddStructureScreen(
-                              structureId: structure.structureId,
-                            ),
-                          ),
-                        );
-                      },
-                      onDelete: () => _showDeleteConfirmation(structure),
-                      onStartTesting: () => _openTestingScreen(structure),
-                      onDownload: () => _showDownloadOptions(structure),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 6.h),
-                _PaginationBar(
-                  currentPage: currentPage,
-                  totalPages: totalPages,
-                  hasNextPage: hasNextPage,
-                  hasPrevPage: hasPrevPage,
-                  isLoading: isLoading,
-                  onPrevious: () => _fetchPage(currentPage - 1),
-                  onNext: () => _fetchPage(currentPage + 1),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _showStructureActionsMenu(List<Datum> structures) async {
-    await showGeneralDialog<void>(
-      context: context,
-      barrierLabel: 'Structure actions',
-      barrierDismissible: true,
-      barrierColor: Colors.black.withOpacity(0.14),
-      transitionDuration: const Duration(milliseconds: 180),
-      pageBuilder: (dialogContext, _, __) {
-        return SafeArea(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => Navigator.of(dialogContext).pop(),
-            child: Stack(
-              children: [
-                Positioned(
-                  top: 12.h,
-                  right: 14.w,
-                  child: GestureDetector(
-                    onTap: () {},
-                    child: _StructureActionMenu(
-                      onAddStructure: () {
-                        Navigator.of(dialogContext).pop();
-                        addstructureProvider.initializeStructure(context);
-                      },
-                      onEditStructure: () {
-                        Navigator.of(dialogContext).pop();
-                        _showEditStructureSelector(structures);
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-      transitionBuilder: (dialogContext, animation, secondaryAnimation, child) {
-        final curved = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        );
-        return FadeTransition(
-          opacity: curved,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.96, end: 1).animate(curved),
-            alignment: Alignment.topRight,
-            child: child,
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _showEditStructureSelector(List<Datum> structures) async {
-    if (!mounted) return;
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) {
-        return _EditStructureSelectorDialog(
-          structures: structures,
-          isLoading: isLoading && structures.isEmpty,
-          onSelected: (structure) {
-            Navigator.of(dialogContext).pop();
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) =>
-                    AddStructureScreen(structureId: structure.structureId),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   Future<void> _showDeleteConfirmation(Datum structure) async {
     if (!mounted) return;
 
@@ -305,87 +261,95 @@ class _StructureListState extends State<StructureList> {
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (bottomSheetContext) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 26.h),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 48.w,
-                  height: 5.h,
-                  decoration: BoxDecoration(
-                    color: const Color(0xffD0D5DD),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-                SizedBox(height: 18.h),
-                Container(
-                  width: 52.w,
-                  height: 52.w,
-                  decoration: BoxDecoration(
-                    color: const Color(0xffFEE4E2),
-                    borderRadius: BorderRadius.circular(16.r),
-                  ),
-                  child: Icon(
-                    Icons.delete_outline_rounded,
-                    color: const Color(0xffD92D20),
-                    size: 28.sp,
-                  ),
-                ),
-                SizedBox(height: 14.h),
-                Text(
-                  'Delete structure?',
-                  style: w600_20Poppins(color: const Color(0xff101828)),
-                ),
-                SizedBox(height: 8.h),
-                Text(
-                  'Are you sure you want to delete the structure ${structure.structuralIdentityNumber}?',
-                  textAlign: TextAlign.center,
-                  style: w400_14Poppins(color: const Color(0xff475467)),
-                ),
-                SizedBox(height: 20.h),
-                Row(
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _T.maxDialogWidth),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding:
+                  const EdgeInsets.fromLTRB(20, 18, 20, 26),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.of(bottomSheetContext).pop(false),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xff344054),
-                          side: const BorderSide(color: Color(0xffD0D5DD)),
-                          backgroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12.r),
-                          ),
-                          padding: EdgeInsets.symmetric(vertical: 14.h),
-                        ),
-                        child: Text('Cancel', style: w600_14Poppins()),
+                    Container(
+                      width: 48,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: const Color(0xffD0D5DD),
+                        borderRadius: BorderRadius.circular(999),
                       ),
                     ),
-                    SizedBox(width: 12.w),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.of(bottomSheetContext).pop(true),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xffD92D20),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12.r),
-                          ),
-                          padding: EdgeInsets.symmetric(vertical: 14.h),
-                          elevation: 0,
-                        ),
-                        child: Text('Delete', style: w600_14Poppins(color: Colors.white)),
+                    const SizedBox(height: 18),
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: _T.dangerBg,
+                        borderRadius: BorderRadius.circular(16),
                       ),
+                      child: const Icon(
+                        Icons.delete_outline_rounded,
+                        color: _T.dangerFg,
+                        size: 26,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text('Delete structure?',
+                        style: w600_18Poppins(color: _T.ink)),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Are you sure you want to delete ${structure.structuralIdentityNumber}?',
+                      textAlign: TextAlign.center,
+                      style: w400_13Poppins(color: _T.ink2),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () =>
+                                Navigator.of(bottomSheetContext).pop(false),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _T.ink,
+                              side: const BorderSide(color: Color(0xffD0D5DD)),
+                              backgroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: Text('Cancel',
+                                style: w600_14Poppins(color: _T.ink)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () =>
+                                Navigator.of(bottomSheetContext).pop(true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _T.dangerFg,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              elevation: 0,
+                            ),
+                            child: Text('Delete',
+                                style: w600_14Poppins(color: Colors.white)),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
         );
@@ -403,43 +367,242 @@ class _StructureListState extends State<StructureList> {
       await getstructureProvider.getStructures(context, page: 1);
     }
   }
+
+  // ── Build ──────────────────────────────────────────────────────────────
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<GetstructureProvider>(
+      builder: (context, provider, child) {
+        final roleFiltered = _applyRoleFilter(provider.structureList);
+        final counts = _computeCounts(roleFiltered);
+        final filteredList = _applyViewFilters(roleFiltered);
+        final pagination = provider.structureData?.pagination;
+        final currentPage = pagination?.currentPage ?? 1;
+        final totalPages = pagination?.totalPages ?? 1;
+        final hasNextPage = pagination?.hasNextPage ?? false;
+        final hasPrevPage = pagination?.hasPrevPage ?? false;
+        final lastUpdated = _lastUpdated(roleFiltered);
+
+        if (isLoading && provider.structureData == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final screenW = MediaQuery.of(context).size.width;
+        final horizPad = contentGutter(screenW);
+        final columns = contentColumns(screenW);
+
+        return RefreshIndicator(
+          onRefresh: () => _fetchPage(1),
+          color: Appcolors.buttonColor,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(horizPad, 4, horizPad, 24),
+            children: [
+              _PageHeader(
+                totalCount: roleFiltered.length,
+                lastUpdated: lastUpdated,
+                showPrimaryAction: _isFE,
+                onPrimaryAction: () =>
+                    addstructureProvider.initializeStructure(context),
+              ),
+              const SizedBox(height: 16),
+              _SearchRow(
+                controller: _searchController,
+                onChanged: (v) => setState(() => _query = v),
+                onClear: () {
+                  _searchController.clear();
+                  setState(() => _query = '');
+                },
+                hasQuery: _query.isNotEmpty,
+              ),
+              const SizedBox(height: 12),
+              if (roleFiltered.isNotEmpty) ...[
+                _FilterChipsRow(
+                  active: _activeFilter,
+                  counts: counts,
+                  onChanged: (f) => setState(() => _activeFilter = f),
+                ),
+                const SizedBox(height: 14),
+              ],
+              if (roleFiltered.isEmpty)
+                _buildInitialEmptyState()
+              else if (filteredList.isEmpty)
+                _buildNoResultsState()
+              else ...[
+                _CardGrid(
+                  columns: columns,
+                  spacing: 10,
+                  children: [
+                    for (final structure in filteredList)
+                      _StructureCard(
+                        structure: structure,
+                        downloadState: provider.reportDownloadStateFor(
+                          structure.structuralIdentityNumber.trim(),
+                        ),
+                        showEditActions: _isFE,
+                        showTestingButton: _showTestingColumn,
+                        onOpenDetails: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => GetLocationdetails(
+                                structureId: structure.structureId,
+                              ),
+                            ),
+                          );
+                        },
+                        onEdit: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AddStructureScreen(
+                                structureId: structure.structureId,
+                              ),
+                            ),
+                          );
+                        },
+                        onDelete: () => _showDeleteConfirmation(structure),
+                        onStartTesting: () => _openTestingScreen(structure),
+                        onDownload: () => _showDownloadOptions(structure),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _PaginationBar(
+                  currentPage: currentPage,
+                  totalPages: totalPages,
+                  hasNextPage: hasNextPage,
+                  hasPrevPage: hasPrevPage,
+                  isLoading: isLoading,
+                  onPrevious: () => _fetchPage(currentPage - 1),
+                  onNext: () => _fetchPage(currentPage + 1),
+                ),
+                const SizedBox(height: 8),
+                _Footnote(count: filteredList.length),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInitialEmptyState() {
+    return SizedBox(
+      height: 420,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(AppImages.emptyStructureList),
+            const SizedBox(height: 20),
+            Text("No records available", style: w600_18Poppins(color: _T.ink)),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: 330,
+              child: Text(
+                "Nothing to display. Create your first structure to get started!",
+                style: w400_13Poppins(color: _T.ink2),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoResultsState() {
+    return Container(
+      margin: const EdgeInsets.only(top: 20),
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+      decoration: BoxDecoration(
+        color: _T.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _T.line),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: const BoxDecoration(
+              color: _T.line2,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.search_off_rounded,
+                color: _T.muted, size: 22),
+          ),
+          const SizedBox(height: 12),
+          Text('No matching structures',
+              style: w600_14Poppins(color: _T.ink)),
+          const SizedBox(height: 4),
+          Text(
+            'Try a different code, city, or filter.',
+            textAlign: TextAlign.center,
+            style: w400_12Poppins(color: _T.ink2),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _StructureHeader extends StatelessWidget {
-  const _StructureHeader({required this.userRole, required this.onOpenActions});
+// ─── Page header ───────────────────────────────────────────────────────────
+class _PageHeader extends StatelessWidget {
+  const _PageHeader({
+    required this.totalCount,
+    required this.lastUpdated,
+    required this.showPrimaryAction,
+    required this.onPrimaryAction,
+  });
 
-  final String userRole;
-  final VoidCallback? onOpenActions;
+  final int totalCount;
+  final DateTime? lastUpdated;
+  final bool showPrimaryAction;
+  final VoidCallback onPrimaryAction;
 
   @override
   Widget build(BuildContext context) {
+    final countStr = totalCount.toString().padLeft(2, '0');
+    final subtitleParts = <String>[
+      '$countStr ${totalCount == 1 ? "structure" : "structures"}',
+      if (lastUpdated != null) 'updated ${_formatDate(lastUpdated!)}',
+    ];
+
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        const Spacer(),
-        if (onOpenActions != null)
-          _HeaderPlusButton(onTap: onOpenActions!)
-        else
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: const Color(0xffE5E7EB)),
-            ),
-            child: Text(
-              userRole,
-              style: w500_12Poppins(color: Appcolors.buttonColor),
-            ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Structures',
+                style: w700_24Poppins(color: _T.ink)
+                    .copyWith(letterSpacing: -0.6, height: 1.05),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitleParts.join(' · '),
+                style: w500_12Poppins(color: _T.muted),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
+        ),
+        if (showPrimaryAction) ...[
+          const SizedBox(width: 10),
+          _PrimaryActionButton(onTap: onPrimaryAction),
+        ],
       ],
     );
   }
 }
 
-class _HeaderPlusButton extends StatelessWidget {
-  const _HeaderPlusButton({required this.onTap});
-
+class _PrimaryActionButton extends StatelessWidget {
+  const _PrimaryActionButton({required this.onTap});
   final VoidCallback onTap;
 
   @override
@@ -448,36 +611,29 @@ class _HeaderPlusButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(12),
         child: Ink(
-          width: 42.w,
-          height: 42.h,
+          padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16.r),
-            gradient: LinearGradient(
-              colors: [
-                Appcolors.buttonColor,
-                Appcolors.buttonColor.withOpacity(0.82),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: Appcolors.buttonColor,
+            borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Appcolors.buttonColor.withOpacity(0.25),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
+                color: Appcolors.buttonColor.withOpacity(0.24),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: Center(
-            child: Text(
-              '+',
-              style: _expoStyle(
-                w700_20Poppins(color: Colors.white),
-                letterSpacing: -0.6,
-              ),
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.add_rounded, color: Colors.white, size: 16),
+              const SizedBox(width: 6),
+              Text('New structure',
+                  style: w600_13Poppins(color: Colors.white)),
+            ],
           ),
         ),
       ),
@@ -485,11 +641,282 @@ class _HeaderPlusButton extends StatelessWidget {
   }
 }
 
+// ─── Search + sort row ─────────────────────────────────────────────────────
+class _SearchRow extends StatelessWidget {
+  const _SearchRow({
+    required this.controller,
+    required this.onChanged,
+    required this.onClear,
+    required this.hasQuery,
+  });
+
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+  final bool hasQuery;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            height: 42,
+            decoration: BoxDecoration(
+              color: _T.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _T.line),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.search_rounded, size: 16, color: _T.muted),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    onChanged: onChanged,
+                    style: w500_13Poppins(color: _T.ink),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      border: InputBorder.none,
+                      hintText: 'Search by code, location, or type',
+                      hintStyle: w500_13Poppins(color: _T.muted),
+                    ),
+                  ),
+                ),
+                if (hasQuery)
+                  InkWell(
+                    onTap: onClear,
+                    borderRadius: BorderRadius.circular(999),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(Icons.close_rounded,
+                          size: 15, color: _T.muted),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        _SquareIconButton(
+          icon: Icons.sort_rounded,
+          tooltip: 'Sort',
+          onTap: () {
+            // Sort not wired yet.
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _SquareIconButton extends StatelessWidget {
+  const _SquareIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: _T.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _T.line),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, size: 16, color: _T.ink2),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Filter chips ──────────────────────────────────────────────────────────
+class _FilterChipsRow extends StatelessWidget {
+  const _FilterChipsRow({
+    required this.active,
+    required this.counts,
+    required this.onChanged,
+  });
+
+  final _FilterKey active;
+  final Map<_FilterKey, int> counts;
+  final ValueChanged<_FilterKey> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = _filterOrder
+        .where((d) => d.key == _FilterKey.all || (counts[d.key] ?? 0) > 0)
+        .toList();
+
+    return SizedBox(
+      height: 32,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: visible.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        itemBuilder: (context, i) {
+          final def = visible[i];
+          final isActive = def.key == active;
+          final count = counts[def.key] ?? 0;
+          final showCount = def.key != _FilterKey.residential &&
+              def.key != _FilterKey.commercial;
+          return _FilterChip(
+            label: def.label,
+            count: showCount ? count : null,
+            active: isActive,
+            onTap: () => onChanged(def.key),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.count,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String label;
+  final int? count;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: active ? Appcolors.buttonColor : _T.surface,
+            border: Border.all(
+                color: active ? Appcolors.buttonColor : _T.line),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: w600_12Poppins(
+                  color: active ? Colors.white : _T.ink2,
+                ),
+              ),
+              if (count != null) ...[
+                const SizedBox(width: 5),
+                Text(
+                  count!.toString().padLeft(2, '0'),
+                  style: w700_10Poppins(
+                    color: active
+                        ? Colors.white.withOpacity(0.72)
+                        : _T.muted,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Responsive card grid ──────────────────────────────────────────────────
+/// Lays [children] out in `columns` equal-width columns. Cards in the same row
+/// are stretched to a common height so the row reads as one band; with a single
+/// column this degrades to a plain vertical list.
+class _CardGrid extends StatelessWidget {
+  const _CardGrid({
+    required this.columns,
+    required this.spacing,
+    required this.children,
+  });
+
+  final int columns;
+  final double spacing;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    if (columns <= 1) {
+      return Column(
+        children: [
+          for (int i = 0; i < children.length; i++) ...[
+            if (i > 0) SizedBox(height: spacing),
+            children[i],
+          ],
+        ],
+      );
+    }
+
+    final rows = <Widget>[];
+    for (int start = 0; start < children.length; start += columns) {
+      final slice = children.sublist(
+        start,
+        (start + columns).clamp(0, children.length),
+      );
+      rows.add(
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (int i = 0; i < columns; i++) ...[
+                if (i > 0) SizedBox(width: spacing),
+                Expanded(
+                  child: i < slice.length ? slice[i] : const SizedBox.shrink(),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (int i = 0; i < rows.length; i++) ...[
+          if (i > 0) SizedBox(height: spacing),
+          rows[i],
+        ],
+      ],
+    );
+  }
+}
+
+// ─── Structure card ────────────────────────────────────────────────────────
 class _StructureCard extends StatelessWidget {
   const _StructureCard({
     required this.structure,
     required this.downloadState,
-    required this.showEditButton,
+    required this.showEditActions,
     required this.showTestingButton,
     required this.onOpenDetails,
     required this.onEdit,
@@ -500,7 +927,7 @@ class _StructureCard extends StatelessWidget {
 
   final Datum structure;
   final ReportDownloadState downloadState;
-  final bool showEditButton;
+  final bool showEditActions;
   final bool showTestingButton;
   final VoidCallback onOpenDetails;
   final VoidCallback onEdit;
@@ -510,334 +937,679 @@ class _StructureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final metadata = <_MetadataItem>[
-      _MetadataItem(
-        icon: Icons.apartment_rounded,
-        label: _floorsLabel(structure),
-      ),
-      _MetadataItem(
-        icon: Icons.calendar_today_rounded,
-        label: _dateLabel(structure),
-      ),
-      _MetadataItem(
-        icon: Icons.place_outlined,
-        label: _locationLabel(structure),
-      ),
-    ].where((item) => item.label.isNotEmpty).toList();
-
-    final subtitle = _subtitle(structure);
-    final supportingLine = _supportingLine(structure);
+    final code = structure.structuralIdentityNumber;
+    final prefix = code.length > 4 ? code.substring(0, 4) : code;
+    final rest = code.length > 4 ? code.substring(4) : '';
+    final typeShort = _shortType(structure);
+    final typeLabel = _typeLabel(structure);
+    final location = _locationLabel(structure);
+    final floors = structure.dimensions.floors;
+    final dateStr = _formatDate(structure.timestamps.lastUpdatedDate);
+    final agoStr = _timeAgo(structure.timestamps.lastUpdatedDate);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onOpenDetails,
-        borderRadius: BorderRadius.circular(22.r),
+        borderRadius: BorderRadius.circular(14),
         child: Ink(
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(22.r),
-            border: Border.all(color: const Color(0xffECEFF3)),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xff101828).withOpacity(0.05),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
+            color: _T.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _T.line),
           ),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(10.w, 10.h, 10.w, 10.h),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _StructureThumbnail(
-                  typeLabel: _structureTypeShortLabel(structure),
-                  imageUrl: structure.location.structureImage,
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  structure.structuralIdentityNumber,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: w600_16Poppins(
-                                    color: const Color(0xff182230),
-                                  ),
-                                ),
-                                if (subtitle.isNotEmpty) ...[
-                                  SizedBox(height: 3.h),
-                                  Text(
-                                    subtitle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: w400_12Poppins(
-                                      color: const Color(0xff475467),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // TOP: icon + code/meta + status
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _CardIconTile(typeShort: typeShort),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _CodeText(prefix: prefix, rest: rest),
+                        const SizedBox(height: 4),
+                        _MetaLine(typeLabel: typeLabel, location: location),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _StatusPill(status: structure.status),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const _DashedDivider(),
+              const SizedBox(height: 10),
+
+              // BOTTOM: facts + actions
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (floors != null && floors > 0)
+                          _Fact(
+                            icon: Icons.apartment_rounded,
+                            label:
+                                '$floors ${floors == 1 ? "floor" : "floors"}',
+                            emphasize: true,
                           ),
-                          SizedBox(width: 8.w),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _StatusChip(status: structure.status),
-                              if (showEditButton) ...[
-                                _CardActionIcon(
-                                  icon: Icons.edit_outlined,
-                                  tooltip: 'Edit structure',
-                                  onTap: onEdit,
-                                ),
-                                SizedBox(width: 8.w),
-                                _CardActionIcon(
-                                  icon: Icons.delete_outline_rounded,
-                                  tooltip: 'Delete structure',
-                                  onTap: onDelete,
-                                  color: const Color(0xffD92D20),
-                                  backgroundColor: const Color(0xffFEF3F2),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ],
-                      ),
-                      if (supportingLine.isNotEmpty) ...[
-                        SizedBox(height: 6.h),
-                        Text(
-                          supportingLine,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: w400_12Poppins(color: const Color(0xff98A2B3)),
+                        _Fact(
+                          icon: Icons.calendar_today_rounded,
+                          label: dateStr,
+                          emphasize: true,
+                        ),
+                        _Fact(
+                          icon: Icons.access_time_rounded,
+                          label: agoStr,
+                          emphasize: false,
                         ),
                       ],
-                      if (metadata.isNotEmpty) ...[
-                        SizedBox(height: 9.h),
-                        Wrap(
-                          spacing: 6.w,
-                          runSpacing: 6.h,
-                          children: metadata
-                              .map(
-                                (item) => _MetadataPill(
-                                  icon: item.icon,
-                                  label: item.label,
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      ],
-                      SizedBox(height: 10.h),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: SizedBox(
-                              height: 34.h,
-                              child: OutlinedButton.icon(
-                                onPressed: downloadState.isDownloading
-                                    ? null
-                                    : onDownload,
-                                icon: downloadState.isDownloading
-                                    ? SizedBox(
-                                        width: 14.w,
-                                        height: 14.w,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          value: downloadState.progress,
-                                          color: Appcolors.buttonColor,
-                                        ),
-                                      )
-                                    : const Icon(
-                                        Icons.download_rounded,
-                                        size: 16,
-                                      ),
-                                label: Text(
-                                  downloadState.isDownloading
-                                      ? _downloadLabel(downloadState)
-                                      : 'Download',
-                                  style: w500_12Poppins(
-                                    color: downloadState.isDownloading
-                                        ? const Color(0xff98A2B3)
-                                        : const Color(0xff344054),
-                                  ),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  side: BorderSide(
-                                    color: downloadState.isDownloading
-                                        ? const Color(0xffD0D5DD)
-                                        : const Color(0xffD0D5DD),
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  backgroundColor: Colors.white,
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 10.w,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: 10.w),
-                          if (showTestingButton)
-                            SizedBox(
-                              height: 34.h,
-                              child: ElevatedButton(
-                                onPressed: onStartTesting,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Appcolors.buttonColor,
-                                  foregroundColor: Colors.white,
-                                  elevation: 1.5,
-                                  shadowColor: Appcolors.buttonColor
-                                      .withOpacity(0.22),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 16.w,
-                                    vertical: 7.h,
-                                  ),
-                                  minimumSize: Size(0, 34.h),
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                child: Text(
-                                  'Start Testing',
-                                  style: w500_12Poppins(color: Colors.white),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      if (downloadState.isDownloading) ...[
-                        SizedBox(height: 10.h),
-                        LinearProgressIndicator(
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _CardActions(
+                    isDownloading: downloadState.isDownloading,
+                    onDownload: onDownload,
+                    showEditActions: showEditActions,
+                    onEdit: onEdit,
+                    onDelete: onDelete,
+                    showTestingButton: showTestingButton,
+                    onStartTesting: onStartTesting,
+                  ),
+                ],
+              ),
+
+              // Download progress
+              if (downloadState.isDownloading) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
                           value: downloadState.progress,
-                          minHeight: 5,
-                          borderRadius: BorderRadius.circular(999),
-                          backgroundColor: const Color(0xffE4E7EC),
+                          minHeight: 4,
+                          backgroundColor: _T.line2,
                           color: Appcolors.buttonColor,
                         ),
-                      ],
-                      if (!downloadState.isDownloading &&
-                          (downloadState.errorMessage ?? '').isNotEmpty) ...[
-                        SizedBox(height: 8.h),
-                        Text(
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      _downloadLabel(downloadState),
+                      style: w500_12Poppins(color: _T.ink2),
+                    ),
+                  ],
+                ),
+              ],
+
+              // Download error
+              if (!downloadState.isDownloading &&
+                  (downloadState.errorMessage ?? '').isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _T.dangerBg,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline_rounded,
+                          size: 14, color: _T.dangerFg),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
                           downloadState.errorMessage!,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: w400_12Poppins(color: const Color(0xffB42318)),
+                          style: w500_12Poppins(color: _T.dangerFg),
                         ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
               ],
-            ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  static String _locationLabel(Datum structure) {
+  static String _locationLabel(Datum s) {
     final parts = <String>[
-      if (structure.location.cityName.trim().isNotEmpty)
-        structure.location.cityName.trim(),
-      if (structure.location.stateCode.trim().isNotEmpty)
-        structure.location.stateCode.trim(),
+      if (s.location.cityName.trim().isNotEmpty) s.location.cityName.trim(),
+      if (s.location.stateCode.trim().isNotEmpty) s.location.stateCode.trim(),
     ];
     return parts.join(', ');
   }
 
-  static String _subtitle(Datum structure) {
-    final clientName = (structure.clientName ?? '').trim();
-    if (clientName.isNotEmpty) return clientName;
-
-    final type = structure.typeOfStructure.trim();
-    if (type.isNotEmpty) {
-      return type[0].toUpperCase() + type.substring(1).replaceAll('_', ' ');
-    }
-
-    return '';
+  static String _typeLabel(Datum s) {
+    final raw = s.typeOfStructure.trim();
+    if (raw.isEmpty) return 'Structure';
+    return raw[0].toUpperCase() + raw.substring(1).replaceAll('_', ' ');
   }
 
-  static String _prettyStatus(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return 'Pending';
-    return trimmed
-        .split('_')
-        .map((part) {
-          if (part.isEmpty) return part;
-          return '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}';
-        })
-        .join(' ');
-  }
-
-  static String _supportingLine(Datum structure) {
-    final parts = <String>[
-      if (_locationLabel(structure).isNotEmpty) _locationLabel(structure),
-      if (_dateLabel(structure).isNotEmpty) 'Updated ${_dateLabel(structure)}',
-    ];
-    return parts.join('  •  ');
-  }
-
-  static String _structureTypeShortLabel(Datum structure) {
-    final raw = structure.typeOfStructure.trim();
+  static String _shortType(Datum s) {
+    final raw = s.typeOfStructure.trim();
     if (raw.isEmpty) return 'S';
     return raw.substring(0, 1).toUpperCase();
   }
 
-  static String _floorsLabel(Datum structure) {
-    final floors = structure.dimensions.floors;
-    if (floors == null || floors <= 0) return '';
-    return '$floors Floors';
-  }
-
-  static String _dateLabel(Datum structure) {
-    return _formatDate(structure.timestamps.lastUpdatedDate);
-  }
-
   static String _downloadLabel(ReportDownloadState state) {
     final progress = state.progress;
-    final format = state.format?.label ?? 'Report';
     if (progress == null || progress <= 0) {
-      return 'Downloading $format';
+      return 'Downloading…';
     }
-    return 'Downloading ${(progress * 100).round()}%';
-  }
-
-  static String _formatDate(DateTime date) {
-    const monthNames = <String>[
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final month = monthNames[date.month - 1];
-    final day = date.day.toString().padLeft(2, '0');
-    return '$month $day, ${date.year}';
+    return '${(progress * 100).round()}%';
   }
 }
 
+class _CardIconTile extends StatelessWidget {
+  const _CardIconTile({required this.typeShort});
+  final String typeShort;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: _T.primaryTint,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.apartment_rounded,
+                color: Appcolors.buttonColor, size: 20),
+          ),
+          Positioned(
+            top: -5,
+            right: -5,
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: _T.surface,
+                shape: BoxShape.circle,
+                border: Border.all(color: _T.primaryTint2, width: 1.5),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                typeShort,
+                style: w700_10Poppins(color: Appcolors.buttonColor)
+                    .copyWith(fontSize: 9),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CodeText extends StatelessWidget {
+  const _CodeText({required this.prefix, required this.rest});
+  final String prefix;
+  final String rest;
+
+  @override
+  Widget build(BuildContext context) {
+    // Poppins with weight contrast — reads as an identifier without needing
+    // a mono font, matches the rest of the app's typography.
+    return RichText(
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      text: TextSpan(
+        children: [
+          TextSpan(
+            text: prefix,
+            style: w500_15Poppins(color: _T.muted)
+                .copyWith(letterSpacing: -0.2, height: 1.2),
+          ),
+          if (rest.isNotEmpty)
+            TextSpan(
+              text: rest,
+              style: w700_15Poppins(color: _T.ink)
+                  .copyWith(letterSpacing: -0.2, height: 1.2),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetaLine extends StatelessWidget {
+  const _MetaLine({required this.typeLabel, required this.location});
+  final String typeLabel;
+  final String location;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          typeLabel.toUpperCase(),
+          style: w700_10Poppins(color: _T.muted)
+              .copyWith(letterSpacing: 0.4),
+        ),
+        if (location.isNotEmpty) ...[
+          Container(
+            width: 3,
+            height: 3,
+            decoration: const BoxDecoration(
+              color: _T.muted2,
+              shape: BoxShape.circle,
+            ),
+          ),
+          Text(
+            location,
+            style: w500_12Poppins(color: _T.ink2),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.status});
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = _statusPalette(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: palette.bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration:
+                BoxDecoration(color: palette.fg, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            _prettyStatus(status),
+            style: w600_11Poppins(color: palette.fg),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusPalette {
+  const _StatusPalette(this.bg, this.fg);
+  final Color bg;
+  final Color fg;
+}
+
+_StatusPalette _statusPalette(String status) {
+  switch (status.trim().toLowerCase()) {
+    case 'submitted':
+      return const _StatusPalette(_T.amberBg, _T.amberFg);
+    case 'under_testing':
+    case 'in_testing':
+      return const _StatusPalette(_T.infoBg, _T.infoFg);
+    case 'tested':
+    case 'validated':
+    case 'approved':
+    case 'completed':
+      return const _StatusPalette(_T.successBg, _T.successFg);
+    case 'rejected':
+      return const _StatusPalette(_T.dangerBg, _T.dangerFg);
+    default:
+      return const _StatusPalette(_T.slateBg, _T.slateFg);
+  }
+}
+
+String _prettyStatus(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return 'Draft';
+  return trimmed
+      .split('_')
+      .map((p) =>
+          p.isEmpty ? p : '${p[0].toUpperCase()}${p.substring(1).toLowerCase()}')
+      .join(' ');
+}
+
+/// Painted rather than built from a `LayoutBuilder`, because the cards sit
+/// inside an `IntrinsicHeight` row on tablets and `LayoutBuilder` cannot report
+/// intrinsic dimensions.
+class _DashedDivider extends StatelessWidget {
+  const _DashedDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      height: 1,
+      width: double.infinity,
+      child: CustomPaint(painter: _DashedLinePainter()),
+    );
+  }
+}
+
+class _DashedLinePainter extends CustomPainter {
+  const _DashedLinePainter();
+
+  static const double _dash = 4;
+  static const double _gap = 4;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = _T.line
+      ..strokeWidth = 1;
+    for (double x = 0; x < size.width; x += _dash + _gap) {
+      final end = (x + _dash).clamp(0.0, size.width);
+      canvas.drawLine(Offset(x, 0.5), Offset(end, 0.5), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedLinePainter oldDelegate) => false;
+}
+
+class _Fact extends StatelessWidget {
+  const _Fact({
+    required this.icon,
+    required this.label,
+    required this.emphasize,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool emphasize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: _T.muted),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: emphasize
+              ? w600_12Poppins(color: _T.ink2)
+              : w500_12Poppins(color: _T.muted),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Card actions ──────────────────────────────────────────────────────────
+class _CardActions extends StatelessWidget {
+  const _CardActions({
+    required this.isDownloading,
+    required this.onDownload,
+    required this.showEditActions,
+    required this.onEdit,
+    required this.onDelete,
+    required this.showTestingButton,
+    required this.onStartTesting,
+  });
+
+  final bool isDownloading;
+  final VoidCallback onDownload;
+  final bool showEditActions;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final bool showTestingButton;
+  final VoidCallback onStartTesting;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _IconAction(
+          icon: isDownloading ? null : Icons.download_rounded,
+          tooltip: 'Download',
+          onTap: isDownloading ? null : onDownload,
+          child: isDownloading
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Appcolors.buttonColor,
+                  ),
+                )
+              : null,
+        ),
+        if (showEditActions) ...[
+          _IconAction(
+            icon: Icons.edit_outlined,
+            tooltip: 'Edit',
+            onTap: onEdit,
+          ),
+          _IconAction(
+            icon: Icons.delete_outline_rounded,
+            tooltip: 'Delete',
+            onTap: onDelete,
+            danger: true,
+          ),
+        ],
+        if (showTestingButton) ...[
+          const SizedBox(width: 6),
+          _TestButton(onTap: onStartTesting),
+        ],
+      ],
+    );
+  }
+}
+
+class _IconAction extends StatelessWidget {
+  const _IconAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.danger = false,
+    this.child,
+  });
+
+  final IconData? icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+  final bool danger;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseColor = danger ? _T.dangerFg : _T.muted;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(9),
+          child: Container(
+            width: 30,
+            height: 30,
+            alignment: Alignment.center,
+            child: child ?? Icon(icon, size: 15, color: baseColor),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TestButton extends StatelessWidget {
+  const _TestButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Appcolors.buttonColor,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.science_outlined,
+                  size: 13, color: Colors.white),
+              const SizedBox(width: 5),
+              Text('Test', style: w600_12Poppins(color: Colors.white)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Pagination bar ────────────────────────────────────────────────────────
+class _PaginationBar extends StatelessWidget {
+  const _PaginationBar({
+    required this.currentPage,
+    required this.totalPages,
+    required this.hasNextPage,
+    required this.hasPrevPage,
+    required this.isLoading,
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  final int currentPage;
+  final int totalPages;
+  final bool hasNextPage;
+  final bool hasPrevPage;
+  final bool isLoading;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    if (totalPages <= 1) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: _T.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _T.line),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _PageNavButton(
+            icon: Icons.arrow_back_rounded,
+            label: 'Previous',
+            enabled: hasPrevPage && !isLoading,
+            onTap: onPrevious,
+          ),
+          Text('Page $currentPage of $totalPages',
+              style: w600_12Poppins(color: _T.ink2)),
+          _PageNavButton(
+            icon: Icons.arrow_forward_rounded,
+            label: 'Next',
+            enabled: hasNextPage && !isLoading,
+            onTap: onNext,
+            trailing: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PageNavButton extends StatelessWidget {
+  const _PageNavButton({
+    required this.icon,
+    required this.label,
+    required this.enabled,
+    required this.onTap,
+    this.trailing = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool enabled;
+  final VoidCallback onTap;
+  final bool trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = enabled ? _T.ink : _T.muted2;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(10),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!trailing) Icon(icon, size: 14, color: fg),
+              if (!trailing) const SizedBox(width: 6),
+              Text(label, style: w600_12Poppins(color: fg)),
+              if (trailing) const SizedBox(width: 6),
+              if (trailing) Icon(icon, size: 14, color: fg),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Footnote extends StatelessWidget {
+  const _Footnote({required this.count});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        'END OF LIST · ${count.toString().padLeft(2, '0')} ${count == 1 ? "STRUCTURE" : "STRUCTURES"}',
+        style: w700_10Poppins(color: _T.muted).copyWith(letterSpacing: 1.4),
+      ),
+    );
+  }
+}
+
+// ─── Download-format dialog ────────────────────────────────────────────────
 class _ReportDownloadDialog extends StatelessWidget {
   const _ReportDownloadDialog({
     required this.isDownloading,
@@ -850,494 +1622,55 @@ class _ReportDownloadDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
-    final isTablet = mediaQuery.size.width >= 700;
-    final maxWidth = isTablet ? 420.0 : mediaQuery.size.width * 0.84;
+    final maxWidth =
+        mediaQuery.size.width >= 700 ? 400.0 : mediaQuery.size.width * 0.86;
 
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      insetPadding: EdgeInsets.all(16.w),
+      insetPadding: const EdgeInsets.all(16),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: maxWidth,
-          maxHeight: mediaQuery.size.height * 0.52,
+          maxHeight: mediaQuery.size.height * 0.55,
         ),
-        child: Material(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22.r),
-          clipBehavior: Clip.antiAlias,
-          child: Container(
-            padding: EdgeInsets.all(isTablet ? 18.w : 16.w),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(22.r),
-              border: Border.all(color: const Color(0xffEAECF0)),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xff101828).withOpacity(0.05),
-                  blurRadius: 14,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Download report',
-                    style: w600_16Poppins(color: const Color(0xff101828)),
-                  ),
-                  SizedBox(height: 4.h),
-                  Text(
-                    'Choose a format for this report.',
-                    style: w400_12Poppins(color: const Color(0xff667085)),
-                  ),
-                  SizedBox(height: 12.h),
-                  _DownloadFormatTile(
-                    icon: Icons.picture_as_pdf_rounded,
-                    iconColor: const Color(0xffD92D20),
-                    title: 'Download as PDF',
-                    subtitle: 'Portable document format',
-                    isDisabled: isDownloading,
-                    onTap: () => onFormatSelected(ReportDownloadFormat.pdf),
-                  ),
-                  SizedBox(height: 8.h),
-                  _DownloadFormatTile(
-                    icon: Icons.description_rounded,
-                    iconColor: const Color(0xff155EEF),
-                    title: 'Download as Word',
-                    subtitle: 'Editable Word document',
-                    isDisabled: isDownloading,
-                    onTap: () => onFormatSelected(ReportDownloadFormat.word),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StructureActionMenu extends StatelessWidget {
-  const _StructureActionMenu({
-    required this.onAddStructure,
-    required this.onEditStructure,
-  });
-
-  final VoidCallback onAddStructure;
-  final VoidCallback onEditStructure;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(22.r),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
         child: Container(
-          width: 212.w,
-          constraints: BoxConstraints(maxHeight: 180.h),
-          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 6.h),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20.r),
-            color: Colors.white.withOpacity(0.68),
-            border: Border.all(color: Colors.white.withOpacity(0.46)),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xff101828).withOpacity(0.12),
-                blurRadius: 22,
-                offset: const Offset(0, 14),
-              ),
-            ],
+            color: _T.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _T.line),
           ),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: [
-                _ActionMenuItem(
-                  icon: Icons.add_rounded,
-                  title: 'Add Structure',
-                  onTap: onAddStructure,
-                ),
-                SizedBox(height: 4.h),
-                _ActionMenuItem(
-                  icon: Icons.edit_outlined,
-                  title: 'Edit Structure',
-                  onTap: onEditStructure,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionMenuItem extends StatelessWidget {
-  const _ActionMenuItem({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14.r),
-        child: Ink(
-          padding: EdgeInsets.fromLTRB(6.w, 9.h, 8.w, 9.h),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14.r),
-            color: Colors.transparent,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 32.w,
-                height: 32.h,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Appcolors.buttonColor.withOpacity(0.12),
-                  border: Border.all(
-                    color: Appcolors.buttonColor.withOpacity(0.14),
-                  ),
-                ),
-                child: Icon(icon, color: Appcolors.buttonColor, size: 18),
-              ),
-              SizedBox(width: 8.w),
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _expoStyle(
-                    w600_14Poppins(color: const Color(0xff182230)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _EditStructureSelectorDialog extends StatefulWidget {
-  const _EditStructureSelectorDialog({
-    required this.structures,
-    required this.isLoading,
-    required this.onSelected,
-  });
-
-  final List<Datum> structures;
-  final bool isLoading;
-  final ValueChanged<Datum> onSelected;
-
-  @override
-  State<_EditStructureSelectorDialog> createState() =>
-      _EditStructureSelectorDialogState();
-}
-
-class _EditStructureSelectorDialogState
-    extends State<_EditStructureSelectorDialog> {
-  final TextEditingController _searchController = TextEditingController();
-  String _query = '';
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final filteredStructures = widget.structures.where((structure) {
-      final needle = _query.trim().toLowerCase();
-      if (needle.isEmpty) return true;
-
-      final haystack = [
-        structure.structuralIdentityNumber,
-        structure.clientName ?? '',
-        structure.location.cityName,
-        structure.location.stateCode,
-        structure.location.address,
-      ].join(' ').toLowerCase();
-
-      return haystack.contains(needle);
-    }).toList();
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 24.h),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28.r),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Container(
-            constraints: BoxConstraints(maxWidth: 560.w, maxHeight: 560.h),
-            padding: EdgeInsets.fromLTRB(18.w, 18.h, 18.w, 16.h),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28.r),
-              color: Colors.white.withOpacity(0.82),
-              border: Border.all(color: Colors.white.withOpacity(0.55)),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xff101828).withOpacity(0.18),
-                  blurRadius: 34,
-                  offset: const Offset(0, 20),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Edit structure',
-                            style: _expoStyle(
-                              w600_18Poppins(color: const Color(0xff101828)),
-                              letterSpacing: -0.35,
-                            ),
-                          ),
-                          SizedBox(height: 4.h),
-                          Text(
-                            'Search and choose a structure to open the existing edit form.',
-                            style: _expoStyle(
-                              w400_12Poppins(color: const Color(0xff667085)),
-                              letterSpacing: -0.1,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
+                Text('Download report', style: w600_16Poppins(color: _T.ink)),
+                const SizedBox(height: 4),
+                Text('Choose a format for this report.',
+                    style: w400_12Poppins(color: _T.muted)),
+                const SizedBox(height: 14),
+                _DownloadFormatTile(
+                  icon: Icons.picture_as_pdf_rounded,
+                  iconColor: _T.dangerFg,
+                  title: 'Download as PDF',
+                  subtitle: 'Portable document format',
+                  isDisabled: isDownloading,
+                  onTap: () => onFormatSelected(ReportDownloadFormat.pdf),
                 ),
-                SizedBox(height: 14.h),
-                TextField(
-                  controller: _searchController,
-                  onChanged: (value) => setState(() => _query = value),
-                  decoration: InputDecoration(
-                    hintText: 'Search by structure number, client, city...',
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.72),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 14.w,
-                      vertical: 12.h,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(18.r),
-                      borderSide: BorderSide(color: const Color(0xffD0D5DD)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(18.r),
-                      borderSide: BorderSide(color: Appcolors.buttonColor),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 14.h),
-                Flexible(
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(22.r),
-                      color: Colors.white.withOpacity(0.42),
-                      border: Border.all(color: Colors.white.withOpacity(0.48)),
-                    ),
-                    child: widget.isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : filteredStructures.isEmpty
-                        ? _SelectorEmptyState(query: _query)
-                        : Scrollbar(
-                            thumbVisibility: true,
-                            child: ListView.separated(
-                              padding: EdgeInsets.all(10.w),
-                              itemCount: filteredStructures.length,
-                              separatorBuilder: (_, __) =>
-                                  SizedBox(height: 8.h),
-                              itemBuilder: (context, index) {
-                                final structure = filteredStructures[index];
-                                return _StructureSelectionTile(
-                                  structure: structure,
-                                  onTap: () => widget.onSelected(structure),
-                                );
-                              },
-                            ),
-                          ),
-                  ),
+                const SizedBox(height: 8),
+                _DownloadFormatTile(
+                  icon: Icons.description_rounded,
+                  iconColor: _T.infoFg,
+                  title: 'Download as Word',
+                  subtitle: 'Editable Word document',
+                  isDisabled: isDownloading,
+                  onTap: () => onFormatSelected(ReportDownloadFormat.word),
                 ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StructureSelectionTile extends StatelessWidget {
-  const _StructureSelectionTile({required this.structure, required this.onTap});
-
-  final Datum structure;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final subtitle = [
-      if ((structure.clientName ?? '').trim().isNotEmpty)
-        structure.clientName!.trim(),
-      if (structure.location.cityName.trim().isNotEmpty)
-        structure.location.cityName.trim(),
-      if (structure.location.stateCode.trim().isNotEmpty)
-        structure.location.stateCode.trim(),
-    ].join('  •  ');
-
-    final address = structure.location.address.trim();
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18.r),
-        child: Ink(
-          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18.r),
-            color: Colors.white.withOpacity(0.74),
-            border: Border.all(color: const Color(0xffEAECF0)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40.w,
-                height: 40.h,
-                decoration: BoxDecoration(
-                  color: Appcolors.buttonColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(14.r),
-                ),
-                child: Icon(
-                  Icons.apartment_rounded,
-                  color: Appcolors.buttonColor,
-                  size: 20,
-                ),
-              ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      structure.structuralIdentityNumber,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _expoStyle(
-                        w600_14Poppins(color: const Color(0xff101828)),
-                      ),
-                    ),
-                    if (subtitle.isNotEmpty) ...[
-                      SizedBox(height: 3.h),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _expoStyle(
-                          w400_11Poppins(color: const Color(0xff475467)),
-                          letterSpacing: -0.1,
-                        ),
-                      ),
-                    ],
-                    if (address.isNotEmpty) ...[
-                      SizedBox(height: 3.h),
-                      Text(
-                        address,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _expoStyle(
-                          w400_11Poppins(color: const Color(0xff98A2B3)),
-                          letterSpacing: -0.1,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              SizedBox(width: 8.w),
-              Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 14,
-                color: const Color(0xff667085),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SelectorEmptyState extends StatelessWidget {
-  const _SelectorEmptyState({required this.query});
-
-  final String query;
-
-  @override
-  Widget build(BuildContext context) {
-    final isSearching = query.trim().isNotEmpty;
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 24.w),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSearching
-                  ? Icons.search_off_rounded
-                  : Icons.folder_open_rounded,
-              size: 34,
-              color: const Color(0xff98A2B3),
-            ),
-            SizedBox(height: 10.h),
-            Text(
-              isSearching
-                  ? 'No matching structures'
-                  : 'No structures available',
-              style: _expoStyle(w600_14Poppins(color: const Color(0xff344054))),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              isSearching
-                  ? 'Try a different structure number, client name, or location.'
-                  : 'Once structures are assigned, they will appear here for quick editing.',
-              style: _expoStyle(
-                w400_12Poppins(color: const Color(0xff667085)),
-                letterSpacing: -0.1,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
         ),
       ),
     );
@@ -1367,62 +1700,40 @@ class _DownloadFormatTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: isDisabled ? null : onTap,
-        borderRadius: BorderRadius.circular(18.r),
+        borderRadius: BorderRadius.circular(12),
         child: Ink(
-          height: 66.h,
-          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: isDisabled
-                ? const Color(0xffF8F9FC)
-                : const Color(0xffFCFCFD),
-            borderRadius: BorderRadius.circular(18.r),
-            border: Border.all(color: const Color(0xffE4E7EC)),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xff101828).withOpacity(0.025),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            color: isDisabled ? _T.line2 : _T.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _T.line),
           ),
           child: Row(
             children: [
               Container(
-                width: 36.w,
-                height: 36.w,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
                   color: iconColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12.r),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: iconColor, size: 18.sp),
+                alignment: Alignment.center,
+                child: Icon(icon, color: iconColor, size: 18),
               ),
-              SizedBox(width: 10.w),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: w600_13Poppins(color: const Color(0xff101828)),
-                    ),
-                    SizedBox(height: 1.h),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: w400_11Poppins(color: const Color(0xff98A2B3)),
-                    ),
+                    Text(title, style: w600_13Poppins(color: _T.ink)),
+                    const SizedBox(height: 2),
+                    Text(subtitle, style: w400_11Poppins(color: _T.muted)),
                   ],
                 ),
               ),
-              Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 13.sp,
-                color: const Color(0xff98A2B3),
-              ),
+              const Icon(Icons.arrow_forward_ios_rounded,
+                  size: 12, color: _T.muted),
             ],
           ),
         ),
@@ -1431,314 +1742,24 @@ class _DownloadFormatTile extends StatelessWidget {
   }
 }
 
-TextStyle _expoStyle(TextStyle baseStyle, {double? letterSpacing}) {
-  return GoogleFonts.spaceGrotesk(
-    textStyle: baseStyle,
-    letterSpacing: letterSpacing ?? -0.2,
-    height: baseStyle.height ?? 1.15,
-  );
+// ─── Date/time helpers ─────────────────────────────────────────────────────
+String _formatDate(DateTime date) {
+  const monthNames = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  final m = monthNames[date.month - 1];
+  final d = date.day.toString().padLeft(2, '0');
+  return '$m $d, ${date.year}';
 }
 
-class _MetadataItem {
-  const _MetadataItem({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-}
-
-class _CardActionIcon extends StatelessWidget {
-  const _CardActionIcon({
-    required this.icon,
-    required this.tooltip,
-    required this.onTap,
-    this.color = const Color(0xff344054),
-    this.backgroundColor = const Color(0xffF8FAFC),
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onTap;
-  final Color color;
-  final Color backgroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(999),
-          child: Ink(
-            width: 30.w,
-            height: 30.w,
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: const Color(0xffE4E7EC)),
-            ),
-            child: Icon(icon, size: 16.sp, color: color),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MetadataPill extends StatelessWidget {
-  const _MetadataPill({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    const backgroundColor = Color(0xffF4F6FA);
-    const textColor = Color(0xff475467);
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 5.h),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xffE8ECF2)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: textColor),
-          SizedBox(width: 5.w),
-          Text(label, style: w500_12Poppins(color: textColor)),
-        ],
-      ),
-    );
-  }
-}
-
-class _StructureThumbnail extends StatelessWidget {
-  const _StructureThumbnail({required this.typeLabel, this.imageUrl});
-
-  final String typeLabel;
-  final String? imageUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final normalizedImageUrl = imageUrl?.trim() ?? '';
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18.r),
-      child: Container(
-        width: 82.w,
-        height: 106.h,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18.r),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xffEAF2FF), Color(0xffD6E5FF)],
-          ),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (normalizedImageUrl.isNotEmpty)
-              Image.network(
-                normalizedImageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const _ThumbnailPlaceholder(),
-              )
-            else
-              const _ThumbnailPlaceholder(),
-            Positioned(
-              top: 10.h,
-              right: 10.w,
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 4.h),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.82),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  typeLabel,
-                  style: w600_12Poppins(color: Appcolors.buttonColor),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ThumbnailPlaceholder extends StatelessWidget {
-  const _ThumbnailPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xffEAF2FF), Color(0xffD6E5FF)],
-        ),
-      ),
-      child: Center(
-        child: Container(
-          width: 44.w,
-          height: 44.h,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.82),
-            borderRadius: BorderRadius.circular(16.r),
-          ),
-          child: Icon(
-            Icons.domain_rounded,
-            size: 24.sp,
-            color: Appcolors.buttonColor,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
-
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final backgroundColor = _statusChipBackgroundColor(status);
-    final foregroundColor = _statusChipForegroundColor(status);
-
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 5.h),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        _StructureCard._prettyStatus(status),
-        style: w600_11Poppins(color: foregroundColor),
-      ),
-    );
-  }
-}
-
-Color _statusChipBackgroundColor(String status) {
-  switch (status.trim().toLowerCase()) {
-    case 'submitted':
-      return const Color(0xffFFF1D7);
-    case 'under_testing':
-    case 'in_testing':
-      return const Color(0xffDFF2FF);
-    case 'tested':
-    case 'validated':
-    case 'approved':
-    case 'completed':
-      return const Color(0xffDFF7E8);
-    case 'rejected':
-      return const Color(0xffFFE0E0);
-    default:
-      return const Color(0xffEEF2F6);
-  }
-}
-
-Color _statusChipForegroundColor(String status) {
-  switch (status.trim().toLowerCase()) {
-    case 'submitted':
-      return const Color(0xffC97A00);
-    case 'under_testing':
-    case 'in_testing':
-      return const Color(0xff0C6FB8);
-    case 'tested':
-    case 'validated':
-    case 'approved':
-    case 'completed':
-      return const Color(0xff1E8E5A);
-    case 'rejected':
-      return const Color(0xffC74A4A);
-    default:
-      return const Color(0xff475467);
-  }
-}
-
-class _PaginationBar extends StatelessWidget {
-  const _PaginationBar({
-    required this.currentPage,
-    required this.totalPages,
-    required this.hasNextPage,
-    required this.hasPrevPage,
-    required this.isLoading,
-    required this.onPrevious,
-    required this.onNext,
-  });
-
-  final int currentPage;
-  final int totalPages;
-  final bool hasNextPage;
-  final bool hasPrevPage;
-  final bool isLoading;
-  final VoidCallback onPrevious;
-  final VoidCallback onNext;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14.r),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _PaginationButton(
-            label: 'Previous',
-            enabled: hasPrevPage && !isLoading,
-            onTap: onPrevious,
-          ),
-          SizedBox(width: 12.w),
-          Text('Page $currentPage of $totalPages', style: w500_14Poppins()),
-          SizedBox(width: 12.w),
-          _PaginationButton(
-            label: 'Next',
-            enabled: hasNextPage && !isLoading,
-            onTap: onNext,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PaginationButton extends StatelessWidget {
-  const _PaginationButton({
-    required this.label,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: enabled ? onTap : null,
-      style: ElevatedButton.styleFrom(
-        elevation: 0,
-        backgroundColor: enabled ? Appcolors.buttonColor : Colors.grey.shade200,
-        foregroundColor: enabled ? Colors.white : Colors.grey.shade600,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
-        minimumSize: Size(0, 34.h),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-      child: Text(label, style: w500_14Poppins(color: Colors.white)),
-    );
-  }
+String _timeAgo(DateTime date) {
+  final diff = DateTime.now().difference(date);
+  if (diff.inSeconds < 60) return 'just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+  if (diff.inHours < 24) return '${diff.inHours}h ago';
+  if (diff.inDays < 7) return '${diff.inDays}d ago';
+  if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w ago';
+  if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo ago';
+  return '${(diff.inDays / 365).floor()}y ago';
 }

@@ -2,7 +2,6 @@
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:sams_engineering_console/models/floor_idby_flatby_strid_model.dart';
@@ -11,9 +10,9 @@ import 'package:sams_engineering_console/provider/common_provider.dart';
 import 'package:sams_engineering_console/provider/get_structure_provider.dart';
 import 'package:sams_engineering_console/utils/app_colors.dart';
 import 'package:sams_engineering_console/utils/app_fonts.dart';
-import 'package:sams_engineering_console/utils/common_textformfield.dart';
+import 'package:sams_engineering_console/utils/form_kit.dart';
+import 'package:sams_engineering_console/utils/radio_group_dropdown.dart';
 import 'package:sams_engineering_console/utils/custom_toast.dart';
-import 'package:sams_engineering_console/utils/images.dart';
 
 class FloordetailsWidget extends StatefulWidget {
   final String? initialSelectedFloor;
@@ -68,6 +67,17 @@ class FloordetailsWidgetState extends State<FloordetailsWidget> {
   List<String?> flatOccupancyDropdownValues = [];
 
   // Dropdown options
+  static const List<String> _parkingFloorTypeOptions = [
+    "stilt",
+    "cellar",
+    "sub cellar",
+    "sub cellar 1",
+    "sub cellar 2",
+    "sub cellar 3",
+    "sub cellar 4",
+    "sub cellar 5",
+  ];
+
   static const List<String> flatTypeOptions = [
     '1bhk', '2bhk', '3bhk', '4bhk', '5bhk',
     'studio', 'duplex', 'penthouse', 'shop', 'office'
@@ -173,34 +183,6 @@ class FloordetailsWidgetState extends State<FloordetailsWidget> {
     super.dispose();
   }
 
-  Widget commonTextField({
-    required String label,
-    required TextEditingController controller,
-    String? Function(String?, String)? validator,
-    TextInputType? keyboardType,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('$label:', style: w600_16Poppins()),
-        height5,
-        SizedBox(
-          height: 40.h,
-          width: MediaQuery.of(context).size.width * 0.24,
-          child: CommonTextFormField(
-            fillColor: Appcolors.textformFillColor,
-            borderColor: Colors.grey.shade400,
-            controller: controller,
-            hintText: "Enter $label",
-            keyboardType: keyboardType,
-            validator: validator,
-            hintStyle: w400_17Poppins(),
-          ),
-        ),
-      ],
-    );
-  }
-
   // ─── NEW: dropdown helper for flat fields ───────────────────────────────────
   Widget _buildFlatDropdown({
     required String label,
@@ -209,51 +191,19 @@ class FloordetailsWidgetState extends State<FloordetailsWidget> {
     required ValueChanged<String?> onChanged,
     String? Function(String?)? validator,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          height: 25.h,
-          width: MediaQuery.of(context).size.width * 0.23,
-          child: DropdownButtonFormField<String>(
-            value: options.contains(value) ? value : null,
-            isExpanded: true,
-            hint: Text(label, style: w400_12Poppins()),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: Appcolors.textformFillColor,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade400),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade400),
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade400),
-              ),
-              errorStyle: const TextStyle(fontSize: 9, height: 0.8),
-            ),
-            dropdownColor: Appcolors.textformFillColor,
-            style: w400_12Poppins(),
-            items: options
-                .map((o) => DropdownMenuItem(
-                      value: o,
-                      child: Text(o, style: w400_12Poppins()),
-                    ))
-                .toList(),
-            onChanged: onChanged,
-            validator: validator,
-          ),
-        ),
-      ],
+    return LabeledField(
+      label: label,
+      isRequired: true,
+      child: RadioGroupDropdown<String>(
+        options: radioOptionsFromStrings(options, labelBuilder: prettifyOptionLabel),
+        value: options.contains(value) ? value : null,
+        hintText: "Select ${label.toLowerCase()}",
+        sheetTitle: label,
+        validator: validator,
+        onChanged: onChanged,
+      ),
     );
   }
-  // ────────────────────────────────────────────────────────────────────────────
 
   void _syncControllers(int count) {
     debugPrint('🔄 Syncing controllers for $count flats');
@@ -420,32 +370,6 @@ class FloordetailsWidgetState extends State<FloordetailsWidget> {
     });
 
     print('✅ All flats data populated successfully');
-  }
-
-  Widget _buildFlatTextField({
-    required String label,
-    required TextEditingController controller,
-    TextInputType? keyboardType,
-    String? Function(String?, String)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          height: 25.h,
-          width: MediaQuery.of(context).size.width * 0.23,
-          child: CommonTextFormField(
-            controller: controller,
-            keyboardType: keyboardType,
-            fillColor: Appcolors.textformFillColor,
-            borderColor: Colors.grey.shade400,
-            hintText: "Enter $label",
-            labelStyle: w400_12Poppins(),
-            validator: validator,
-          ),
-        ),
-      ],
-    );
   }
 
   Map<String, dynamic> getData() {
@@ -1307,511 +1231,331 @@ class FloordetailsWidgetState extends State<FloordetailsWidget> {
             !(widget.selectedFloorsFromOtherWidgets?.contains(floor) ?? false))
         .toList();
 
+    final isIndustrial = widget.structureType.toLowerCase() == 'industrial';
+    final isParkingFloor = selectedValue == "Yes";
+    final showFlats = !isIndustrial && !isParkingFloor;
+
     return Consumer<GetstructureProvider>(
       builder: (context, provider, child) {
         return Form(
           key: formKey,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          child: FormCard(
+            title: "Floor ${selectedFloor ?? '—'}",
+            trailing: isIndustrial ? null : _buildParkingToggle(),
+            children: [
+              _buildFloorRequestStatus(provider),
+              FormGrid(
                 children: [
-                  _buildFloorRequestStatus(provider),
-
-                  height5,
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Selected floor number: ${selectedFloor ?? 'None'}",
-                        style: w500_16Poppins(),
-                      ),
-                      height5,
-                   
-                    ],
-                  ),
-
-                  if (widget.structureType.toLowerCase() != 'industrial')
-                    Row(
-                      children: [
-                        Text("Parking :", style: w500_16Poppins()),
-                        width5,
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 8,
-                          children: value.map((type) {
-                            return Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Radio<String>(
-                                  value: type,
-                                  groupValue: selectedValue,
-                                  onChanged: (v) {
-                                    setState(() {
-                                      selectedValue = v;
-                                    });
-                                  },
-                                ),
-                                Text(type, style: w400_14Poppins()),
-                              ],
-                            );
-                          }).toList(),
-                        ),
-                      ],
+                  LabeledField(
+                    label: "Floor number",
+                    isRequired: true,
+                    child: RadioGroupDropdown<String>(
+                      options: radioOptionsFromStrings(availableFloors),
+                      value: availableFloors.contains(selectedFloor)
+                          ? selectedFloor
+                          : null,
+                      hintText: "Select floor number",
+                      sheetTitle: "Select floor number",
+                      enabled:
+                          !(_isLoadingFloorData || provider.isLoadingFloors),
+                      validator: (value) => (value == null || value.isEmpty)
+                          ? 'Please select a floor'
+                          : null,
+                      onChanged: (val) async {
+                        if (val == null || val == selectedFloor) return;
+                        setState(() {
+                          selectedFloor = val;
+                          _hasTriedToLoadData = false;
+                          currentFloorId = null;
+                        });
+                        widget.onFloorChanged?.call(val);
+                        await _loadFloorData(val);
+                        _notifyDataChanged();
+                      },
                     ),
-
-                  height10,
-
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 1,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(height: 5),
-                            Text("Please select floor:", style: w400_16Poppins()),
-                            SizedBox(height: 5),
-                            SizedBox(
-                              height: 45.h,
-                              child: DropdownButtonFormField<String>(
-                                hint: Text(
-                                  "Select floor number",
-                                  style: w400_16Poppins(),
-                                ),
-                                value: availableFloors.contains(selectedFloor)
-                                    ? selectedFloor
-                                    : null,
-                                isExpanded: true,
-                                onChanged: (_isLoadingFloorData || provider.isLoadingFloors)
-                                    ? null
-                                    : (val) async {
-                                        if (val != null && val != selectedFloor) {
-                                          setState(() {
-                                            selectedFloor = val;
-                                            _hasTriedToLoadData = false;
-                                            currentFloorId = null;
-                                          });
-                                          if (widget.onFloorChanged != null) {
-                                            widget.onFloorChanged!(val);
-                                          }
-                                          await _loadFloorData(val);
-                                          _notifyDataChanged();
-                                        }
-                                      },
-                                menuMaxHeight: 220.h,
-                                decoration: InputDecoration(
-                                  filled: true,
-                                  fillColor: Appcolors.textformFillColor,
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Colors.grey.shade400,
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Colors.grey.shade400,
-                                    ),
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Colors.grey.shade400,
-                                    ),
-                                  ),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 10,
-                                  ),
-                                ),
-                                dropdownColor: Appcolors.textformFillColor,
-                                items: availableFloors.map((floor) {
-                                  return DropdownMenuItem(
-                                    value: floor,
-                                    child:
-                                        Text(floor, style: w400_16Poppins()),
-                                  );
-                                }).toList(),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Please select a floor';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      width10,
-
-                      if (selectedValue == "Yes") ...[
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("Floor Type", style: w400_16Poppins()),
-                              height5,
-                              SizedBox(
-                                height: 45.h,
-                                width: double.infinity,
-                                child: DropdownButtonFormField<String>(
-                                  hint: Text("Select floor type", style: w400_16Poppins()),
-                                  value: parkingFloorTypes,
-                                  isExpanded: true,
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: Colors.grey[100],
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(color: Colors.grey.shade400),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(color: Colors.grey.shade400),
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(color: Colors.grey.shade400),
-                                    ),
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                  ),
-                                  items: [
-                                    "stilt", "cellar", "sub cellar",
-                                    "sub cellar 1", "sub cellar 2",
-                                    "sub cellar 3", "sub cellar 4", "sub cellar 5",
-                                  ].map((type) {
-                                    return DropdownMenuItem<String>(
-                                      value: type,
-                                      child: Text(type, style: w400_16Poppins()),
-                                    );
-                                  }).toList(),
-                                  dropdownColor: Appcolors.textformFillColor,
-                                  onChanged: (v) {
-                                    setState(() {
-                                      parkingFloorTypes = v;
-                                    });
-                                    _notifyDataChanged();
-                                  },
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please select floor type';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
                   ),
-
-                  height10,
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("Floor Area Sq.mts:", style: w400_16Poppins()),
-                            SizedBox(height: 5),
-                            CommonTextFormField(
-                              controller: floorAreaController,
-                              keyboardType: TextInputType.number,
-                              fillColor: Appcolors.textformFillColor,
-                              borderColor: Colors.grey.shade400,
-                              hintText: "Enter Floor Area Sq.mts:",
-                              labelStyle: w400_15Poppins(),
-                              validator: (val, hintText) {
-                                if (val == null || val.isEmpty) {
-                                  return "Please enter floor area";
-                                }
-                                if (double.tryParse(val) == null ||
-                                    double.parse(val) <= 0) {
-                                  return "Please enter valid floor area";
-                                }
-                                return null;
-                              },
-                            ),
-                          ],
+                  if (isParkingFloor)
+                    LabeledField(
+                      label: "Parking floor type",
+                      isRequired: true,
+                      child: RadioGroupDropdown<String>(
+                        options: radioOptionsFromStrings(
+                          _parkingFloorTypeOptions,
+                          labelBuilder: prettifyOptionLabel,
                         ),
-                      ),
-                      width10,
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("Floor height(M):", style: w400_16Poppins()),
-                            SizedBox(height: 5),
-                            CommonTextFormField(
-                              controller: floorHeightController,
-                              keyboardType: TextInputType.number,
-                              fillColor: Appcolors.textformFillColor,
-                              borderColor: Colors.grey.shade400,
-                              hintText: "Enter Floor height:",
-                              labelStyle: w400_15Poppins(),
-                              validator: (val, hintText) {
-                                if (val == null || val.isEmpty) {
-                                  return "Please enter floor height";
-                                }
-                                if (double.tryParse(val) == null ||
-                                    double.parse(val) <= 0) {
-                                  return "Please enter valid floor height";
-                                }
-                                return null;
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  height10,
-
-                  Row(
-                    children: [
-                      if (selectedValue == "No" &&
-                          widget.structureType.toLowerCase() != 'industrial') ...[
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("Number of flats:", style: w400_16Poppins()),
-                              height5,
-                              CommonTextFormField(
-                                controller: numberOfFlatsController,
-                                keyboardType: TextInputType.number,
-                                fillColor: Appcolors.textformFillColor,
-                                borderColor: Colors.grey.shade400,
-                                hintText: "Enter number of flats",
-                                labelStyle: w400_15Poppins(),
-                                validator: (val, hintText) {
-                                  if (val == null || val.isEmpty) {
-                                    return "Please enter no. of flats";
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        width10,
-                      ],
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("Floor Label Name:", style: w400_15Poppins()),
-                            height5,
-                            CommonTextFormField(
-                              controller: flatLabelNameController,
-                              keyboardType: TextInputType.text,
-                              fillColor: Appcolors.textformFillColor,
-                              borderColor: Colors.grey.shade400,
-                              hintText: "Enter Floor Label Name",
-                              labelStyle: w400_15Poppins(),
-                              validator: (val, hintText) {
-                                if (val == null || val.isEmpty) {
-                                  return "Please enter floor label";
-                                }
-                                return null;
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  // ─── Flat cards ────────────────────────────────────────────
-                  if (flatNumberControllers.isNotEmpty &&
-                      widget.structureType.toLowerCase() != 'industrial')
-                    Visibility(
-                      visible: selectedValue == "No",
-                      child: SizedBox(
-                        height: 230.h,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: flatNumberControllers.length,
-                          itemBuilder: (context, index) {
-                            return Container(
-                              width: 110.w,
-                              margin: EdgeInsets.only(right: 16),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Padding(
-                                padding: EdgeInsets.all(10),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    // Flat Number (text field)
-                                    _buildFlatTextField(
-                                      label: "Flat No.",
-                                      controller: flatNumberControllers[index],
-                                      validator: (val, _) {
-                                        if (val == null || val.isEmpty) return "Required";
-                                        return null;
-                                      },
-                                    ),
-
-                                    // ── Flat Type dropdown ──────────────────
-                                    _buildFlatDropdown(
-                                      label: "Type",
-                                      value: index < flatTypeDropdownValues.length
-                                          ? flatTypeDropdownValues[index]
-                                          : null,
-                                      options: flatTypeOptions,
-                                      onChanged: (v) {
-                                        setState(() {
-                                          if (index < flatTypeDropdownValues.length) {
-                                            flatTypeDropdownValues[index] = v;
-                                          }
-                                          if (index < flatTypeControllers.length) {
-                                            flatTypeControllers[index].text = v ?? '';
-                                          }
-                                        });
-                                        _notifyDataChanged();
-                                      },
-                                      validator: (v) {
-                                        if (v == null || v.isEmpty) return "Required";
-                                        return null;
-                                      },
-                                    ),
-
-                                    // Area (text field)
-                                    _buildFlatTextField(
-                                      label: "Area",
-                                      controller: flatAreaControllers[index],
-                                      keyboardType: TextInputType.number,
-                                      validator: (val, _) {
-                                        if (val == null || val.isEmpty) return "Required";
-                                        if (double.tryParse(val) == null ||
-                                            double.parse(val) <= 0) return "Invalid";
-                                        return null;
-                                      },
-                                    ),
-
-                                    // ── Direction dropdown ──────────────────
-                                    _buildFlatDropdown(
-                                      label: "Direction",
-                                      value: index < flatDirectionDropdownValues.length
-                                          ? flatDirectionDropdownValues[index]
-                                          : null,
-                                      options: directionOptions,
-                                      onChanged: (v) {
-                                        setState(() {
-                                          if (index < flatDirectionDropdownValues.length) {
-                                            flatDirectionDropdownValues[index] = v;
-                                          }
-                                          if (index < flatDirectionControllers.length) {
-                                            flatDirectionControllers[index].text = v ?? '';
-                                          }
-                                        });
-                                        _notifyDataChanged();
-                                      },
-                                      validator: (v) {
-                                        if (v == null || v.isEmpty) return "Required";
-                                        return null;
-                                      },
-                                    ),
-
-                                    // ── Occupancy dropdown ──────────────────
-                                    _buildFlatDropdown(
-                                      label: "Occupancy",
-                                      value: index < flatOccupancyDropdownValues.length
-                                          ? flatOccupancyDropdownValues[index]
-                                          : null,
-                                      options: occupancyOptions,
-                                      onChanged: (v) {
-                                        setState(() {
-                                          if (index < flatOccupancyDropdownValues.length) {
-                                            flatOccupancyDropdownValues[index] = v;
-                                          }
-                                          if (index < flatOccupancyControllers.length) {
-                                            flatOccupancyControllers[index].text = v ?? '';
-                                          }
-                                        });
-                                        _notifyDataChanged();
-                                      },
-                                      validator: (v) {
-                                        if (v == null || v.isEmpty) return "Required";
-                                        return null;
-                                      },
-                                    ),
-
-                                    // Save button (only for existing flats with an ID)
-                                    // if (index < flatSavingStates.length &&
-                                    //     flatSavingStates[index] == false &&
-                                    //     index < flatIds.length &&
-                                    //     flatIds[index] != null)
-                                    //   CustomButton(
-                                    //     buttonText: (index < flatSavingStates.length &&
-                                    //             flatSavingStates[index])
-                                    //         ? "Saving..."
-                                    //         : "Save",
-                                    //     buttonColor: (index < flatSavingStates.length &&
-                                    //             flatSavingStates[index])
-                                    //         ? Colors.grey
-                                    //         : (index < flatIds.length &&
-                                    //               flatIds[index] != null)
-                                    //         ? Appcolors.buttonColor
-                                    //         : Colors.grey.shade400,
-                                    //     buttonTextStyle:
-                                    //         w400_12Poppins(color: Colors.white),
-                                    //     width: 80.w,
-                                    //     height: 25.h,
-                                    //     borderRadius: 6.r,
-                                    //     onTap: ((index < flatSavingStates.length &&
-                                    //                 flatSavingStates[index]) ||
-                                    //             (index >= flatIds.length ||
-                                    //                 flatIds[index] == null))
-                                    //         ? null
-                                    //         : () => _saveFlatDetails(index),
-                                    //   ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                        value: parkingFloorTypes,
+                        hintText: "Select floor type",
+                        sheetTitle: "Parking floor type",
+                        validator: (value) => (value == null || value.isEmpty)
+                            ? 'Please select floor type'
+                            : null,
+                        onChanged: (v) {
+                          setState(() => parkingFloorTypes = v);
+                          _notifyDataChanged();
+                        },
                       ),
                     ),
-
-                  if (flatNumberControllers.isEmpty && _isDataLoaded &&
-                      widget.structureType.toLowerCase() != 'industrial')
-                    Container(
-                      padding: EdgeInsets.all(20),
-                      child: Center(
-                        child: Text(
-                          "No flats available. Please enter number of flats above.",
-                          style: w400_14Poppins(color: Colors.grey[600]),
-                        ),
+                  LabeledField(
+                    label: "Floor area (Sq.mts)",
+                    isRequired: true,
+                    child: FormTextField(
+                      controller: floorAreaController,
+                      keyboardType: TextInputType.number,
+                      hintText: "Enter floor area",
+                      validator: (val, hintText) {
+                        if (val == null || val.isEmpty) {
+                          return "Please enter floor area";
+                        }
+                        if (double.tryParse(val) == null ||
+                            double.parse(val) <= 0) {
+                          return "Please enter valid floor area";
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  LabeledField(
+                    label: "Floor height (M)",
+                    isRequired: true,
+                    child: FormTextField(
+                      controller: floorHeightController,
+                      keyboardType: TextInputType.number,
+                      hintText: "Enter floor height",
+                      validator: (val, hintText) {
+                        if (val == null || val.isEmpty) {
+                          return "Please enter floor height";
+                        }
+                        if (double.tryParse(val) == null ||
+                            double.parse(val) <= 0) {
+                          return "Please enter valid floor height";
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  LabeledField(
+                    label: "Floor label name",
+                    isRequired: true,
+                    child: FormTextField(
+                      controller: flatLabelNameController,
+                      hintText: "Enter floor label name",
+                      validator: (val, hintText) =>
+                          (val == null || val.isEmpty)
+                              ? "Please enter floor label"
+                              : null,
+                    ),
+                  ),
+                  if (showFlats)
+                    LabeledField(
+                      label: "Number of flats",
+                      isRequired: true,
+                      child: FormTextField(
+                        controller: numberOfFlatsController,
+                        keyboardType: TextInputType.number,
+                        hintText: "Enter number of flats",
+                        validator: (val, hintText) =>
+                            (val == null || val.isEmpty)
+                                ? "Please enter no. of flats"
+                                : null,
                       ),
                     ),
                 ],
               ),
-            ),
+              if (showFlats) ...[
+                const SizedBox(height: 18),
+                _buildFlatsSection(),
+              ],
+            ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildParkingToggle() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text("Parking floor", style: w600_13Poppins(color: FormKit.labelColor)),
+        const SizedBox(width: 6),
+        for (final option in value)
+          Padding(
+            padding: const EdgeInsets.only(left: 2),
+            child: ChoiceChip(
+              label: Text(
+                option,
+                style: w600_12Poppins(
+                  color: selectedValue == option
+                      ? Colors.white
+                      : FormKit.labelColor,
+                ),
+              ),
+              selected: selectedValue == option,
+              onSelected: (_) => setState(() => selectedValue = option),
+              selectedColor: Appcolors.buttonColor,
+              backgroundColor: Colors.white,
+              side: BorderSide(
+                color: selectedValue == option
+                    ? Appcolors.buttonColor
+                    : FormKit.borderColor,
+              ),
+              showCheckmark: false,
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// The flats on this floor. Previously a horizontally-scrolling strip of
+  /// 110dp cards, which clipped every field inside it; now a wrapping grid so
+  /// each flat gets a readable card at any width.
+  Widget _buildFlatsSection() {
+    if (flatNumberControllers.isEmpty) {
+      if (!_isDataLoaded) return const SizedBox.shrink();
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xffF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xffE5E7EB)),
+        ),
+        child: Text(
+          "No flats yet — enter the number of flats above.",
+          textAlign: TextAlign.center,
+          style: w400_14Poppins(color: FormKit.hintColor),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "FLATS · ${flatNumberControllers.length}",
+          style: w700_10Poppins(color: FormKit.hintColor)
+              .copyWith(letterSpacing: 0.6),
+        ),
+        const SizedBox(height: 10),
+        FormGrid(
+          minItemWidth: 250,
+          children: [
+            for (int index = 0; index < flatNumberControllers.length; index++)
+              _buildFlatCard(index),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFlatCard(int index) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xffF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xffE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "FLAT ${index + 1}",
+            style: w700_10Poppins(color: FormKit.hintColor)
+                .copyWith(letterSpacing: 0.6),
+          ),
+          const SizedBox(height: 10),
+          LabeledField(
+            label: "Flat number",
+            isRequired: true,
+            child: FormTextField(
+              controller: flatNumberControllers[index],
+              hintText: "Enter flat number",
+              validator: (val, _) =>
+                  (val == null || val.isEmpty) ? "Required" : null,
+            ),
+          ),
+          const SizedBox(height: FormKit.rowGap),
+          _buildFlatDropdown(
+            label: "Flat type",
+            value: index < flatTypeDropdownValues.length
+                ? flatTypeDropdownValues[index]
+                : null,
+            options: flatTypeOptions,
+            onChanged: (v) {
+              setState(() {
+                if (index < flatTypeDropdownValues.length) {
+                  flatTypeDropdownValues[index] = v;
+                }
+                if (index < flatTypeControllers.length) {
+                  flatTypeControllers[index].text = v ?? '';
+                }
+              });
+              _notifyDataChanged();
+            },
+            validator: (v) => (v == null || v.isEmpty) ? "Required" : null,
+          ),
+          const SizedBox(height: FormKit.rowGap),
+          LabeledField(
+            label: "Area (Sq.mts)",
+            isRequired: true,
+            child: FormTextField(
+              controller: flatAreaControllers[index],
+              keyboardType: TextInputType.number,
+              hintText: "Enter area",
+              validator: (val, _) {
+                if (val == null || val.isEmpty) return "Required";
+                if (double.tryParse(val) == null || double.parse(val) <= 0) {
+                  return "Invalid";
+                }
+                return null;
+              },
+            ),
+          ),
+          const SizedBox(height: FormKit.rowGap),
+          _buildFlatDropdown(
+            label: "Direction facing",
+            value: index < flatDirectionDropdownValues.length
+                ? flatDirectionDropdownValues[index]
+                : null,
+            options: directionOptions,
+            onChanged: (v) {
+              setState(() {
+                if (index < flatDirectionDropdownValues.length) {
+                  flatDirectionDropdownValues[index] = v;
+                }
+                if (index < flatDirectionControllers.length) {
+                  flatDirectionControllers[index].text = v ?? '';
+                }
+              });
+              _notifyDataChanged();
+            },
+            validator: (v) => (v == null || v.isEmpty) ? "Required" : null,
+          ),
+          const SizedBox(height: FormKit.rowGap),
+          _buildFlatDropdown(
+            label: "Occupancy",
+            value: index < flatOccupancyDropdownValues.length
+                ? flatOccupancyDropdownValues[index]
+                : null,
+            options: occupancyOptions,
+            onChanged: (v) {
+              setState(() {
+                if (index < flatOccupancyDropdownValues.length) {
+                  flatOccupancyDropdownValues[index] = v;
+                }
+                if (index < flatOccupancyControllers.length) {
+                  flatOccupancyControllers[index].text = v ?? '';
+                }
+              });
+              _notifyDataChanged();
+            },
+            validator: (v) => (v == null || v.isEmpty) ? "Required" : null,
+          ),
+        ],
+      ),
     );
   }
 }

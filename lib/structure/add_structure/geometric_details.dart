@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import 'package:sams_engineering_console/provider/add_structure_provider.dart';
 import 'package:sams_engineering_console/provider/get_structure_provider.dart';
@@ -7,12 +6,11 @@ import 'package:sams_engineering_console/structure/add_structure/floor_details.d
 import 'package:sams_engineering_console/structure/add_structure/structural_nonstructural_revised.dart';
 import 'package:sams_engineering_console/utils/app_colors.dart';
 import 'package:sams_engineering_console/utils/app_fonts.dart';
-import 'package:sams_engineering_console/utils/common_textformfield.dart';
-import 'package:sams_engineering_console/utils/custom_botton.dart';
 import 'package:sams_engineering_console/utils/custom_toast.dart';
-import 'package:sams_engineering_console/utils/floating_action_bar.dart';
+import 'package:sams_engineering_console/utils/form_kit.dart';
 import 'package:sams_engineering_console/utils/form_validations.dart';
-import 'package:sams_engineering_console/utils/images.dart';
+import 'package:sams_engineering_console/utils/radio_group_dropdown.dart';
+import 'package:sams_engineering_console/utils/wizard_scaffold.dart';
 
 class Geometricdetails extends StatefulWidget {
   const Geometricdetails({
@@ -256,470 +254,213 @@ class _GeometricdetailsState extends State<Geometricdetails> {
     }
   }
 
+  static const List<String> _parkingFloorTypeOptions = [
+    "stilt",
+    "cellar",
+    "sub cellar",
+    "sub cellar 1",
+    "sub cellar 2",
+    "sub cellar 3",
+    "sub cellar 4",
+    "sub cellar 5",
+  ];
+
+  /// Step 1 — how many floors the structure has, and what each one is called.
   Widget buildExpansionTileStep() {
     return Form(
       key: _floorCountKey,
-      child: SingleChildScrollView(
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey, width: 0.5),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(14.0),
-            child: Column(
-              children: [
-                // Row(
-                //   children: [
-                //       Text(
-                //     "Parking :",
-                //     style: w500_16Poppins(),
-                //   ),
-                //   width5,
-                //     Wrap(
-                //           spacing: 12,
-                //           runSpacing: 8,
-                //           children: value.map((type) {
-                //             return Row(
-                //               mainAxisSize: MainAxisSize.min,
-                //               children: [
-                //                 Radio<String>(
-                //                   value: type,
-                //                   groupValue: selectedValue,
-                //                   onChanged: (value) {
-                //                     setState(() {
-                //                       selectedValue = value;
-                //                       // Recalculate floor count when parking changes
-                //                       _onFloorCountChanged();
-                //                     });
-                //                   },
-                //                 ),
-                //                 Text(type, style: w400_14Poppins()),
-                //               ],
-                //             );
-                //           }).toList(),
-                //         ),
-                //   ],
-                // ),
-                height10,
-                // Show parking floor count when parking is "Yes"
-                if (selectedValue == "Yes") ...[
-                  Theme(
-                    data: Theme.of(
-                      context,
-                    ).copyWith(dividerColor: Colors.transparent),
-                    child: ExpansionTile(
-                      initiallyExpanded: true,
-                      backgroundColor: Colors.transparent,
-                      childrenPadding: EdgeInsets.all(0),
-                      title: Text(
-                        "Number Of Parking Floors",
-                        style: w500_16Poppins(),
-                      ),
-                      subtitle: CommonTextFormField(
-                        controller: parkingFloorController,
-                        fillColor: Appcolors.textformFillColor,
-                        borderColor: Colors.grey.shade400,
-                        validator: (val, String? f) {
-                          return FormValidations.requiredFieldValidation(
-                            val,
-                            "Please enter no. of parking floors",
-                          );
-                        },
-                        hintText: "Enter Number Of Parking Floors",
-                        hintStyle: w400_17Poppins(),
-                        keyboardType: TextInputType.phone,
-                        onChanged: (value) {
-                          // Trigger floor count changed when user types
-                          _onFloorCountChanged();
-                        },
-                        suffixIcon: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            GestureDetector(
-                              child: Icon(Icons.arrow_drop_up),
-                              onTap: () {
-                                setState(() {
-                                  final val =
-                                      int.tryParse(
-                                        parkingFloorController.text,
-                                      ) ??
-                                      0;
-                                  parkingFloorController.text = (val + 1)
-                                      .toString();
-                                  _onFloorCountChanged();
-                                });
-                              },
-                            ),
-                            GestureDetector(
-                              child: Icon(Icons.arrow_drop_down),
-                              onTap: () {
-                                setState(() {
-                                  final val =
-                                      int.tryParse(
-                                        parkingFloorController.text,
-                                      ) ??
-                                      0;
-                                  if (val > 0) {
-                                    parkingFloorController.text = (val - 1)
-                                        .toString();
-                                    _onFloorCountChanged();
-                                  }
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      trailing: Icon(Icons.arrow_drop_down),
-                      children: [
-                        Column(
-                          children: [
-                            // Parking floors detailed input
-                            if (parkingFloorNoControllers.isNotEmpty)
-                              Padding(
-                                padding: EdgeInsets.all(12),
-                                child: SizedBox(
-                                  height: 242.h,
-                                  child: ListView.builder(
-                                    itemCount: parkingFloorNoControllers.length,
-                                    shrinkWrap: true,
-                                    scrollDirection: Axis.horizontal,
-                                    physics: NeverScrollableScrollPhysics(),
-                                    itemBuilder: (context, index) {
-                                      return Container(
-                                        width:
-                                            100.w, // Slightly increased width
-                                        margin: EdgeInsets.only(right: 16),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                            color: Colors.grey.shade300,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: Padding(
-                                          padding: EdgeInsets.all(16),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              // Floor Number
-                                              commonTextField(
-                                                label: "Floor Number",
-                                                controller:
-                                                    parkingFloorNoControllers[index],
-                                                validator: (val, String? f) {
-                                                  return FormValidations.requiredFieldValidation(
-                                                    val,
-                                                    "Please enter floor number",
-                                                  );
-                                                },
-                                              ),
-                                              commonTextField(
-                                                label: "Floor Area",
-                                                controller:
-                                                    parkingFloorNoControllers[index],
-                                                validator: (val, String? f) {
-                                                  return FormValidations.requiredFieldValidation(
-                                                    val,
-                                                    "Please enter floor area",
-                                                  );
-                                                },
-                                              ),
-                                              commonTextField(
-                                                label: "Floor Name",
-                                                controller:
-                                                    parkingFloorNameControllers[index],
-                                                validator: (val, String? f) {
-                                                  return FormValidations.requiredFieldValidation(
-                                                    val,
-                                                    "Please enter floor name",
-                                                  );
-                                                },
-                                              ),
-                                              Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    "Floor Type",
-                                                    style: w400_16Poppins(),
-                                                  ),
-                                                  height5,
-                                                  SizedBox(
-                                                    height: 45.h,
-                                                    width: double.infinity,
-                                                    child: DropdownButtonFormField<String>(
-                                                      hint: Text(
-                                                        "Select floor type",
-                                                        style: w400_16Poppins(),
-                                                      ),
-                                                      value:
-                                                          parkingFloorTypes[index],
-                                                      isExpanded: true,
-                                                      decoration: InputDecoration(
-                                                        filled: true,
-                                                        fillColor:
-                                                            Colors.grey[100],
-                                                        focusedBorder:
-                                                            OutlineInputBorder(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                              borderSide:
-                                                                  BorderSide(
-                                                                    color: Colors
-                                                                        .grey
-                                                                        .shade400,
-                                                                  ),
-                                                            ),
-                                                        enabledBorder:
-                                                            OutlineInputBorder(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                              borderSide:
-                                                                  BorderSide(
-                                                                    color: Colors
-                                                                        .grey
-                                                                        .shade400,
-                                                                  ),
-                                                            ),
-                                                        border: OutlineInputBorder(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                12,
-                                                              ),
-                                                          borderSide:
-                                                              BorderSide(
-                                                                color: Colors
-                                                                    .grey
-                                                                    .shade400,
-                                                              ),
-                                                        ),
-                                                        contentPadding:
-                                                            EdgeInsets.symmetric(
-                                                              horizontal: 12,
-                                                              vertical: 10,
-                                                            ),
-                                                      ),
-                                                      items:
-                                                          [
-                                                            "stilt",
-                                                            "cellar",
-                                                            "sub cellar",
-                                                            "sub cellar 1",
-                                                            "sub cellar 2",
-                                                            "sub cellar 3",
-                                                            "sub cellar 4",
-                                                            "sub cellar 5",
-                                                          ].map((type) {
-                                                            return DropdownMenuItem<
-                                                              String
-                                                            >(
-                                                              value: type,
-                                                              child: Text(
-                                                                type,
-                                                                style:
-                                                                    w400_16Poppins(),
-                                                              ),
-                                                            );
-                                                          }).toList(),
-                                                      dropdownColor: Appcolors
-                                                          .textformFillColor,
-                                                      onChanged: (value) {
-                                                        setState(() {
-                                                          parkingFloorTypes[index] =
-                                                              value;
-                                                        });
-                                                      },
-                                                      validator: (value) {
-                                                        if (value == null ||
-                                                            value.isEmpty) {
-                                                          return 'Please select floor type';
-                                                        }
-                                                        return null;
-                                                      },
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  height10,
-                ],
-                Theme(
-                  data: Theme.of(
-                    context,
-                  ).copyWith(dividerColor: Colors.transparent),
-                  child: ExpansionTile(
-                    initiallyExpanded: true,
-                    backgroundColor: Colors.transparent,
-                    childrenPadding: EdgeInsets.all(0),
-                    title: Text(
-                      "Number Of Floors ${selectedValue == "Yes" ? "(Excluding Parking)" : ""}",
-                      style: w500_16Poppins(),
-                    ),
-                    subtitle: CommonTextFormField(
-                      controller: floorController,
-                      fillColor: Appcolors.textformFillColor,
-                      borderColor: Colors.grey.shade400,
-                      validator: (val, String? f) {
-                        return FormValidations.requiredFieldValidation(
-                          val,
-                          "Please enter no. of floors",
-                        );
-                      },
-                      hintText: "Enter Number Of Floors",
-                      hintStyle: w400_17Poppins(),
-                      keyboardType: TextInputType.phone,
-                      onChanged: (value) {
-                        // Trigger floor count changed when user types
-                        _onFloorCountChanged();
-                      },
-                      suffixIcon: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          GestureDetector(
-                            child: Icon(Icons.arrow_drop_up),
-                            onTap: () {
-                              setState(() {
-                                final val =
-                                    int.tryParse(floorController.text) ?? 0;
-                                floorController.text = (val + 1).toString();
-                                _onFloorCountChanged();
-                              });
-                            },
-                          ),
-                          GestureDetector(
-                            child: Icon(Icons.arrow_drop_down),
-                            onTap: () {
-                              setState(() {
-                                final val =
-                                    int.tryParse(floorController.text) ?? 0;
-                                if (val > 0) {
-                                  floorController.text = (val - 1).toString();
-                                  _onFloorCountChanged();
-                                }
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    trailing: Icon(Icons.arrow_drop_down),
-                    children: [
-                      Column(
-                        children: [
-                          GridView.builder(
-                            itemCount: _floorCount,
-                            shrinkWrap: true,
-                            physics: NeverScrollableScrollPhysics(),
-                            padding: EdgeInsets.all(12),
-                            gridDelegate:
-                                SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
-                                  childAspectRatio: 2.6,
-                                ),
-                            itemBuilder: (context, index) {
-                              print(
-                                '🏗️ Building floor item $index of $_floorCount',
-                              );
-                              return commonTextField(
-                                label: "Floor No.",
-                                controller: floorNoControllers[index],
-                                validator: (val, String? f) {
-                                  return FormValidations.requiredFieldValidation(
-                                    val,
-                                    "Please enter floor no.",
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                          height5,
-                          CustomButton(
-                            height: 30.h,
-                            width: 100.w,
-                            buttonTextStyle: w500_15Poppins(),
-                            buttonColor: Colors.transparent,
-                            borderColor: Colors.grey.shade400,
-                            onTap: () {
-                              if (_floorCountKey.currentState?.validate() ??
-                                  false) {
-                                // ✅ Generate floor dropdown items from all controllers (parking + regular)
-                                List<String> parkingFloorsEntered =
-                                    parkingFloorNoControllers
-                                        .map(
-                                          (controller) =>
-                                              controller.text.trim(),
-                                        )
-                                        .where((text) => text.isNotEmpty)
-                                        .toList();
+      child: Column(
+        children: [
+          if (selectedValue == "Yes") ...[
+            _buildParkingFloorsCard(),
+            const SizedBox(height: 12),
+          ],
+          _buildFloorCountCard(),
+        ],
+      ),
+    );
+  }
 
-                                List<String> regularFloorsEntered =
-                                    floorNoControllers
-                                        .map(
-                                          (controller) =>
-                                              controller.text.trim(),
-                                        )
-                                        .where((text) => text.isNotEmpty)
-                                        .toList();
-
-                                // Combine parking and regular floors
-                                List<String> allFloorsEntered = [
-                                  ...parkingFloorsEntered,
-                                  ...regularFloorsEntered,
-                                ];
-
-                                if (allFloorsEntered.isNotEmpty) {
-                                  setState(() {
-                                    // ✅ Only update if not already populated from existing data
-                                    if (!_isDataLoaded) {
-                                      floorDropdownItems = allFloorsEntered;
-                                    }
-                                    currentStep = 2;
-                                  });
-                                  print(
-                                    '📋 Moving to step 2 with floors: $floorDropdownItems',
-                                  );
-                                } else {
-                                  _showErrorMessage(
-                                    'Please enter at least one floor number',
-                                  );
-                                }
-                              }
-                            },
-                            buttonText: "Next",
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+  Widget _buildParkingFloorsCard() {
+    return FormCard(
+      title: "Parking floors",
+      children: [
+        LabeledField(
+          label: "Number of parking floors",
+          isRequired: true,
+          child: FormStepperField(
+            controller: parkingFloorController,
+            hintText: "Enter number of parking floors",
+            onChanged: _onFloorCountChanged,
+            validator: (val, String? f) =>
+                FormValidations.requiredFieldValidation(
+              val,
+              "Please enter no. of parking floors",
             ),
           ),
         ),
+        if (parkingFloorNoControllers.isNotEmpty) ...[
+          const SizedBox(height: FormKit.rowGap),
+          FormGrid(
+            minItemWidth: 260,
+            children: [
+              for (int index = 0;
+                  index < parkingFloorNoControllers.length;
+                  index++)
+                _buildParkingFloorTile(index),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildParkingFloorTile(int index) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xffF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xffE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "PARKING FLOOR ${index + 1}",
+            style: w700_10Poppins(color: FormKit.hintColor)
+                .copyWith(letterSpacing: 0.6),
+          ),
+          const SizedBox(height: 10),
+          LabeledField(
+            label: "Floor number",
+            isRequired: true,
+            child: FormTextField(
+              controller: parkingFloorNoControllers[index],
+              hintText: "Enter floor number",
+              validator: (val, String? f) =>
+                  FormValidations.requiredFieldValidation(
+                val,
+                "Please enter floor number",
+              ),
+            ),
+          ),
+          const SizedBox(height: FormKit.rowGap),
+          LabeledField(
+            label: "Floor name",
+            isRequired: true,
+            child: FormTextField(
+              controller: parkingFloorNameControllers[index],
+              hintText: "Enter floor name",
+              validator: (val, String? f) =>
+                  FormValidations.requiredFieldValidation(
+                val,
+                "Please enter floor name",
+              ),
+            ),
+          ),
+          const SizedBox(height: FormKit.rowGap),
+          LabeledField(
+            label: "Floor type",
+            isRequired: true,
+            child: RadioGroupDropdown<String>(
+              options: radioOptionsFromStrings(
+                _parkingFloorTypeOptions,
+                labelBuilder: prettifyOptionLabel,
+              ),
+              value: parkingFloorTypes[index],
+              hintText: "Select floor type",
+              sheetTitle: "Floor type",
+              validator: (value) =>
+                  value == null ? 'Please select floor type' : null,
+              onChanged: (value) =>
+                  setState(() => parkingFloorTypes[index] = value),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  Widget _buildFloorCountCard() {
+    return FormCard(
+      title:
+          "Floors${selectedValue == "Yes" ? " (excluding parking)" : ""}",
+      children: [
+        LabeledField(
+          label: "Number of floors",
+          isRequired: true,
+          child: FormStepperField(
+            controller: floorController,
+            hintText: "Enter number of floors",
+            onChanged: _onFloorCountChanged,
+            validator: (val, String? f) =>
+                FormValidations.requiredFieldValidation(
+              val,
+              "Please enter no. of floors",
+            ),
+          ),
+        ),
+        if (_floorCount > 0) ...[
+          const SizedBox(height: FormKit.rowGap),
+          FormGrid(
+            columns: 3,
+            minItemWidth: 150,
+            children: [
+              for (int index = 0; index < _floorCount; index++)
+                LabeledField(
+                  label: "Floor ${index + 1}",
+                  isRequired: true,
+                  child: FormTextField(
+                    controller: floorNoControllers[index],
+                    hintText: "Floor no.",
+                    validator: (val, String? f) =>
+                        FormValidations.requiredFieldValidation(
+                      val,
+                      "Please enter floor no.",
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Validates step 1 and moves to step 2. Returns false when the form is
+  /// incomplete, so the caller can leave the user where they are.
+  bool _advanceToFloorDetails() {
+    if (!(_floorCountKey.currentState?.validate() ?? false)) return false;
+
+    final parkingFloorsEntered = parkingFloorNoControllers
+        .map((controller) => controller.text.trim())
+        .where((text) => text.isNotEmpty)
+        .toList();
+
+    final regularFloorsEntered = floorNoControllers
+        .map((controller) => controller.text.trim())
+        .where((text) => text.isNotEmpty)
+        .toList();
+
+    final allFloorsEntered = [
+      ...parkingFloorsEntered,
+      ...regularFloorsEntered,
+    ];
+
+    if (allFloorsEntered.isEmpty) {
+      _showErrorMessage('Please enter at least one floor number');
+      return false;
+    }
+
+    setState(() {
+      // Only update if not already populated from existing data
+      if (!_isDataLoaded) {
+        floorDropdownItems = allFloorsEntered;
+      }
+      currentStep = 2;
+    });
+    return true;
   }
 
   Widget buildFloorDetailsStep() {
@@ -729,137 +470,105 @@ class _GeometricdetailsState extends State<Geometricdetails> {
 
     return Form(
       key: _floorDetailsKey,
-      child: SingleChildScrollView(
-        child: Container(
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Build exactly the number of floor widgets as specified
-                ...List.generate(floorDetailsList.length, (index) {
-                  final item = floorDetailsList[index];
-                  final key =
-                      item["widgetKey"] as GlobalKey<FloordetailsWidgetState>;
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+        // Build exactly the number of floor widgets as specified
+        ...List.generate(floorDetailsList.length, (index) {
+          final item = floorDetailsList[index];
+          final key =
+              item["widgetKey"] as GlobalKey<FloordetailsWidgetState>;
 
-                  print(
-                    '🔨 Building floor widget $index with key: ${key.toString()}',
-                  );
+          print(
+            '🔨 Building floor widget $index with key: ${key.toString()}',
+          );
 
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16.0),
-                    child: FloordetailsWidget(
-                      structureId: widget.structureId,
-                      key: key,
-                      initialSelectedFloor: item["selected"],
-                      floorDropdownItems: floorDropdownItems,
-                      flatNumberControllers: item["flatNumberControllers"],
-                      numberOfFlatsController: item["numberOfFlatsController"],
-                      isEditMode: _isDataLoaded,
-                      structureType: widget.selectedStructureType,
-                      commercialType: widget.selectedCommercialType,
-                      // FIXED: Pass list of already selected floors to filter dropdown
-                      selectedFloorsFromOtherWidgets: selectedFloors
-                          .where((floor) => floor != item["selected"])
-                          .toList(),
-                      onFloorChanged: (selected) {
-                        setState(() {
-                          // Remove previous selection
-                          if (item["selected"] != null) {
-                            selectedFloors.remove(item["selected"]);
-                          }
-                          // Add new selection
-                          item["selected"] = selected;
-                          selectedFloors.add(selected);
-                        });
-                        print(
-                          '🔄 Floor $index selection changed to: $selected',
-                        );
-                      },
-                      onFloorDataChanged: (Map<String, dynamic> floorData) {
-                        // FIXED: Add mounted check to prevent setState on disposed widget
-                        if (mounted) {
-                          setState(() {
-                            item["floorData"] = floorData;
-                            final flats =
-                                floorData['flats'] as List<dynamic>? ?? [];
-                            item["flatNumbers"] = flats
-                                .map(
-                                  (flat) =>
-                                      flat['flatNumber']?.toString() ?? '',
-                                )
-                                .where((flatNum) => flatNum.isNotEmpty)
-                                .toList();
-                          });
-                        }
-                      },
-                    ),
-                  );
-                }),
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: FloordetailsWidget(
+              structureId: widget.structureId,
+              key: key,
+              initialSelectedFloor: item["selected"],
+              floorDropdownItems: floorDropdownItems,
+              flatNumberControllers: item["flatNumberControllers"],
+              numberOfFlatsController: item["numberOfFlatsController"],
+              isEditMode: _isDataLoaded,
+              structureType: widget.selectedStructureType,
+              commercialType: widget.selectedCommercialType,
+              // FIXED: Pass list of already selected floors to filter dropdown
+              selectedFloorsFromOtherWidgets: selectedFloors
+                  .where((floor) => floor != item["selected"])
+                  .toList(),
+              onFloorChanged: (selected) {
+                setState(() {
+                  // Remove previous selection
+                  if (item["selected"] != null) {
+                    selectedFloors.remove(item["selected"]);
+                  }
+                  // Add new selection
+                  item["selected"] = selected;
+                  selectedFloors.add(selected);
+                });
+                print(
+                  '🔄 Floor $index selection changed to: $selected',
+                );
+              },
+              onFloorDataChanged: (Map<String, dynamic> floorData) {
+                // FIXED: Add mounted check to prevent setState on disposed widget
+                if (mounted) {
+                  setState(() {
+                    item["floorData"] = floorData;
+                    final flats =
+                        floorData['flats'] as List<dynamic>? ?? [];
+                    item["flatNumbers"] = flats
+                        .map(
+                          (flat) =>
+                              flat['flatNumber']?.toString() ?? '',
+                        )
+                        .where((flatNum) => flatNum.isNotEmpty)
+                        .toList();
+                  });
+                }
+              },
+            ),
+          );
+        }),
 
-                // Only show "Add Floor" button if there are available floors and we're not at max
-                if (getAvailableFloors().isNotEmpty &&
-                    floorDetailsList.length < floorDropdownItems.length)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16.0),
-                    child: GestureDetector(
-                      onTap: () {
-                        if (floorDetailsList.length <
-                            floorDropdownItems.length) {
-                          setState(() {
-                            final key = GlobalKey<FloordetailsWidgetState>();
-                            floorWidgetKeys.add(key);
-                            floorDetailsList.add({
-                              "selected": null,
-                              "numberOfFlatsController":
-                                  TextEditingController(),
-                              "flatNumberControllers":
-                                  <TextEditingController>[],
-                              "widgetKey": key,
-                            });
-                          });
-                          print(' Added new floor details widget');
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Appcolors.textformFillColor,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(Icons.add, color: Colors.grey[600]),
-                      ),
-                    ),
-                  ),
-
-                // Navigation buttons
-                Padding(
-                  padding: const EdgeInsets.only(top: 16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            currentStep = 1;
-                          });
-                        },
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 12,
-                          ),
-                        ),
-                        child: Text("Back", style: w400_20Poppins()),
-                      ),
-                    ],
-                  ),
+        // Only show "Add Floor" button if there are available floors and we're not at max
+        if (getAvailableFloors().isNotEmpty &&
+            floorDetailsList.length < floorDropdownItems.length)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16.0),
+            child: GestureDetector(
+              onTap: () {
+                if (floorDetailsList.length <
+                    floorDropdownItems.length) {
+                  setState(() {
+                    final key = GlobalKey<FloordetailsWidgetState>();
+                    floorWidgetKeys.add(key);
+                    floorDetailsList.add({
+                      "selected": null,
+                      "numberOfFlatsController":
+                          TextEditingController(),
+                      "flatNumberControllers":
+                          <TextEditingController>[],
+                      "widgetKey": key,
+                    });
+                  });
+                  print(' Added new floor details widget');
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Appcolors.textformFillColor,
+                  shape: BoxShape.circle,
                 ),
-              ],
+                child: Icon(Icons.add, color: Colors.grey[600]),
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -1193,79 +902,20 @@ class _GeometricdetailsState extends State<Geometricdetails> {
     return true;
   }
 
-  Widget numberField({
+  Widget _dimensionField({
     required String label,
     required TextEditingController controller,
     String? Function(String?, String)? validator,
-    TextInputType? keyboardtype,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("$label:", style: w500_15Poppins()),
-        height5,
-        SizedBox(
-          height: 30.h,
-          width: MediaQuery.of(context).size.width * 0.35,
-          child: CommonTextFormField(
-            controller: controller,
-            fillColor: Appcolors.textformFillColor,
-            borderColor: Colors.grey.shade400,
-            validator: validator,
-            hintText: "Enter $label",
-            hintStyle: w400_14Poppins(),
-            keyboardType: keyboardtype,
-            suffixIcon: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                GestureDetector(
-                  child: Icon(Icons.arrow_drop_up),
-                  onTap: () {
-                    final val = int.tryParse(controller.text) ?? 0;
-                    controller.text = (val + 1).toString();
-                  },
-                ),
-                GestureDetector(
-                  child: Icon(Icons.arrow_drop_down),
-                  onTap: () {
-                    final val = int.tryParse(controller.text) ?? 0;
-                    controller.text = (val - 1).toString();
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Fix 3: Update the commonTextField widget to handle null values properly
-  Widget commonTextField({
-    required String label,
-    required TextEditingController controller,
-    String? Function(String?, String)? validator,
-    TextInputType? keyboardType,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('$label:', style: w600_16Poppins()),
-        height5,
-        SizedBox(
-          height: 40.h,
-          width: MediaQuery.of(context).size.width * 0.24,
-          child: CommonTextFormField(
-            fillColor: Appcolors.textformFillColor,
-            borderColor: Colors.grey.shade400,
-            controller: controller,
-            hintText: "Enter $label",
-            keyboardType: keyboardType,
-            validator: validator,
-            hintStyle: w400_17Poppins(),
-          ),
-        ),
-      ],
+    return LabeledField(
+      label: label,
+      isRequired: true,
+      child: FormStepperField(
+        controller: controller,
+        hintText: "Enter ${label.toLowerCase()}",
+        validator: validator,
+        onChanged: () {},
+      ),
     );
   }
 
@@ -1273,199 +923,121 @@ class _GeometricdetailsState extends State<Geometricdetails> {
   Widget build(BuildContext context) {
     return Consumer2<AddstructureProvider, GetstructureProvider>(
       builder: (context, addStructureProvider, getStructureProvider, child) {
-        return Scaffold(
-          backgroundColor: Colors.grey.shade100,
-          extendBody: true,
+        final onFloorDetailsStep = currentStep == 2;
+
+        return WizardScaffold(
+          title: "Geometric Details",
+          subtitle: onFloorDetailsStep
+              ? "Step 3 of 4 · Floor details"
+              : "Step 3 of 4 · Floor count",
+          // On step 2 the back arrow returns to the floor count rather than
+          // leaving the screen, so the two-step flow reads as one screen.
+          onBack: onFloorDetailsStep
+              ? () => setState(() => currentStep = 1)
+              : () => Navigator.of(context).pop(),
+          appBarActions: [
+            if (_isDataLoaded)
+              WizardSkipButton(
+                onTap: onFloorDetailsStep
+                    ? () => onSubmit(
+                          Provider.of<AddstructureProvider>(
+                            context,
+                            listen: false,
+                          ),
+                        )
+                    : null,
+              ),
+          ],
+          isBusy: _isLoading,
+          nextLabel: onFloorDetailsStep ? "Save & continue" : "Next",
+          onNext: _isLoading
+              ? null
+              : () async {
+                  if (!onFloorDetailsStep) {
+                    _advanceToFloorDetails();
+                    return;
+                  }
+
+                  if (!(_structureDimensionsKey.currentState?.validate() ??
+                      false)) {
+                    return;
+                  }
+
+                  final isUpdate =
+                      getStructureProvider.getGeometricDetailsByStrId?.data !=
+                          null;
+
+                  await addStructureProvider.submitGeometricData(
+                    context,
+                    floorController.text,
+                    widthController.text,
+                    lengthController.text,
+                    heightController.text,
+                    isUpdate,
+                    widget.structureId,
+                  );
+
+                  if (!mounted) return;
+                  onSubmit(addStructureProvider);
+                },
           body: _isLoading
-              ? Center(
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 120),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('Loading...', style: w400_16Poppins()),
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      Text('Loading…', style: w500_14Poppins()),
                     ],
                   ),
                 )
               : Form(
                   key: _structureDimensionsKey,
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.only(
-                      bottom: FloatingActionBar.contentBottomPadding(context),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(14.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Column(
+                    children: [
+                      _getStepWidget(),
+                      const SizedBox(height: 12),
+                      FormCard(
+                        title: "Structure dimensions",
+                        children: [
+                          FormGrid(
+                            columns: 3,
+                            minItemWidth: 190,
                             children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    "Geometric Details",
-                                    style: w700_20Poppins(),
-                                  ),
-                                  if (_isDataLoaded) ...[
-                                    CustomButton(
-                                      buttonText: "Skip",
-                                      borderRadius: 10.r,
-                                      buttonColor: currentStep == 2
-                                          ? Colors.transparent
-                                          : Colors.grey.shade300,
-                                      buttonTextStyle: w700_15Poppins(
-                                        color: currentStep == 2
-                                            ? Appcolors.buttonColor
-                                            : Colors.grey.shade500,
-                                      ),
-                                      width: 60.w,
-                                      height: 30.h,
-                                      borderColor: currentStep == 2
-                                          ? Appcolors.buttonColor
-                                          : Colors.grey.shade400,
-                                      onTap: currentStep == 2
-                                          ? () async {
-                                              // Navigate directly using existing data
-                                              final addStructureProvider =
-                                                  Provider.of<
-                                                    AddstructureProvider
-                                                  >(context, listen: false);
-                                              onSubmit(addStructureProvider);
-                                            }
-                                          : null,
-                                    ),
-                                    width10,
-                                  ],
-                                ],
+                              _dimensionField(
+                                label: "Structure width (M)",
+                                controller: widthController,
+                                validator: (val, String? f) =>
+                                    FormValidations.requiredFieldValidation(
+                                  val,
+                                  "Please enter structure width",
+                                ),
                               ),
-                              height10,
-                              _getStepWidget(),
-                              height10,
-                              Row(
-                                children: [
-                                  numberField(
-                                    label: "Structure Width (M)",
-                                    controller: widthController,
-                                    validator: (val, String? f) {
-                                      return FormValidations.requiredFieldValidation(
-                                        val,
-                                        "Please enter structure width",
-                                      );
-                                    },
-                                  ),
-                                  width10,
-                                  numberField(
-                                    label: "Structure Length (M)",
-                                    controller: lengthController,
-                                    validator: (val, String? f) {
-                                      return FormValidations.requiredFieldValidation(
-                                        val,
-                                        "Please enter structure length",
-                                      );
-                                    },
-                                  ),
-                                ],
+                              _dimensionField(
+                                label: "Structure length (M)",
+                                controller: lengthController,
+                                validator: (val, String? f) =>
+                                    FormValidations.requiredFieldValidation(
+                                  val,
+                                  "Please enter structure length",
+                                ),
                               ),
-                              height10,
-                              Row(
-                                children: [
-                                  numberField(
-                                    label: "Total Height (M)",
-                                    controller: heightController,
-                                    validator: (val, String? f) {
-                                      return FormValidations.requiredFieldValidation(
-                                        val,
-                                        "Please enter total height",
-                                      );
-                                    },
-                                  ),
-                                  width10,
-                                ],
+                              _dimensionField(
+                                label: "Total height (M)",
+                                controller: heightController,
+                                validator: (val, String? f) =>
+                                    FormValidations.requiredFieldValidation(
+                                  val,
+                                  "Please enter total height",
+                                ),
                               ),
-                              height10,
                             ],
                           ),
-                        ),
+                        ],
                       ),
-                    ),
+                    ],
                   ),
                 ),
-          bottomNavigationBar: FloatingActionBar(
-            children: [
-              CustomButton(
-                buttonText: "Back",
-                borderRadius: 10.r,
-                buttonColor: Colors.transparent,
-                buttonTextStyle: w700_15Poppins(color: Appcolors.buttonColor),
-                width: 140.w,
-                height: 40.h,
-                borderColor: Appcolors.buttonColor,
-                onTap: () {
-                  Navigator.pop(context);
-                },
-              ),
-              CustomButton(
-                buttonText: "Next",
-                borderRadius: 10.r,
-                buttonColor: currentStep == 2
-                    ? Appcolors.buttonColor
-                    : Colors.grey.shade300,
-                buttonTextStyle: w700_15Poppins(
-                  color: currentStep == 2 ? Colors.white : Colors.grey.shade500,
-                ),
-                width: 170.w,
-                height: 40.h,
-                borderColor: currentStep == 2
-                    ? Appcolors.buttonColor
-                    : Colors.grey.shade400,
-                onTap: currentStep == 2
-                    ? () async {
-                        if (_structureDimensionsKey.currentState?.validate() ??
-                            false) {
-                          final getStructureProvider =
-                              Provider.of<GetstructureProvider>(
-                                context,
-                                listen: false,
-                              );
-
-                          final addStructureProvider =
-                              Provider.of<AddstructureProvider>(
-                                context,
-                                listen: false,
-                              );
-
-                          final isUpdate =
-                              getStructureProvider
-                                  .getGeometricDetailsByStrId
-                                  ?.data !=
-                              null;
-
-                          await addStructureProvider.submitGeometricData(
-                            context,
-                            floorController.text,
-                            widthController.text,
-                            lengthController.text,
-                            heightController.text,
-                            isUpdate,
-                            widget.structureId,
-                          );
-
-                          onSubmit(
-                            addStructureProvider,
-                          ); // your navigation or next step
-                        }
-                      }
-                    : null,
-              ),
-            ],
-          ),
         );
       },
     );

@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 
-const String poppins = "Poppins";
+/// App-wide typeface. Every `w***_**Poppins(...)` helper below resolves to
+/// this family, so changing the app's type is a one-line change here.
+/// (The helper names are kept for now to avoid touching ~200 call sites.)
+const String appFontFamily = "PlusJakartaSans";
+
+const String poppins = appFontFamily;
 
 TextStyle w300_13Poppins({Color? color = Colors.black}) {
   return TextStyle(

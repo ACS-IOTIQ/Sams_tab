@@ -5,7 +5,6 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart'; // Add this import
 import 'package:provider/provider.dart';
@@ -14,12 +13,11 @@ import 'package:sams_engineering_console/provider/get_structure_provider.dart';
 import 'package:sams_engineering_console/structure/add_structure/administrative_details.dart';
 import 'package:sams_engineering_console/utils/app_colors.dart';
 import 'package:sams_engineering_console/utils/app_fonts.dart';
-import 'package:sams_engineering_console/utils/common_textformfield.dart';
-import 'package:sams_engineering_console/utils/custom_botton.dart';
 import 'package:sams_engineering_console/utils/custom_toast.dart';
-import 'package:sams_engineering_console/utils/floating_action_bar.dart';
+import 'package:sams_engineering_console/utils/form_kit.dart';
 import 'package:sams_engineering_console/utils/form_validations.dart';
-import 'package:sams_engineering_console/utils/images.dart';
+import 'package:sams_engineering_console/utils/radio_group_dropdown.dart';
+import 'package:sams_engineering_console/utils/wizard_scaffold.dart';
 import 'package:sams_engineering_console/models/get_locationby_strid_model.dart'
     hide Location;
 
@@ -304,16 +302,16 @@ class _AddStructureScreenState extends State<AddStructureScreen> {
 
   Widget _buildStructureImagePlaceholder() {
     return Container(
-      width: 72.w,
-      height: 72.h,
+      width: 64,
+      height: 64,
       decoration: BoxDecoration(
         color: const Color(0xffEEF4FF),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: Icon(
+      child: const Icon(
         Icons.domain_rounded,
         color: Appcolors.buttonColor,
-        size: 28.sp,
+        size: 26,
       ),
     );
   }
@@ -473,900 +471,450 @@ class _AddStructureScreenState extends State<AddStructureScreen> {
     locationCodeController.clear();
   }
 
+  void _goToAdministrative() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AdministrativeGeometricdetails(
+          structureId: widget.structureId,
+          selectedCommercialType: selectedCommercialType ?? "",
+          selectedStructureType: selectedStructureType ?? "",
+          selectedStructureSubType: selectedStructureSubType ?? "",
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      resizeToAvoidBottomInset: false,
-      body: Consumer2<AddstructureProvider, GetstructureProvider>(
-        builder: (context, addStructureProvider, getStructureProvider, child) {
-          return Form(
+    return Consumer2<AddstructureProvider, GetstructureProvider>(
+      builder: (context, addStructureProvider, getStructureProvider, child) {
+        final strNumber = getStructureProvider.getLocationDetailsByStrId?.data
+                .structuralIdentity.structuralIdentityNumber ??
+            widget.structureId;
+
+        return WizardScaffold(
+          title: "Location Details",
+          subtitle: "Step 1 of 4 · STR $strNumber",
+          appBarActions: [
+            if (hasExistingData) WizardSkipButton(onTap: _goToAdministrative),
+          ],
+          onNext: () async {
+            if (!(_formKey.currentState?.validate() ?? false)) {
+              CustomToast.showErrorToast(
+                msg: "Please complete the highlighted fields.",
+              );
+              return;
+            }
+
+            // `getLocationDetailsByStrId.data` is non-null even for a structure
+            // that has no location saved yet, so testing it sent a PUT for the
+            // very first save and the server rejected it. `hasExistingData` is
+            // set only when a record was actually loaded, which is the real
+            // create-vs-update signal.
+            final isUpdate = hasExistingData;
+
+            final saved = await addStructureProvider.submitLocationData(
+              context,
+              selectedState!,
+              zipCodeController.text,
+              cityController.text,
+              selectedStructureType!,
+              latitudeController.text,
+              longitudeController.text,
+              addressController.text,
+              isUpdate,
+              widget.structureId,
+              structureNameController.text,
+              selectedStructureSubType!,
+              selectedCommercialType ?? "only_commercial",
+              structureAgeController.text.toString(),
+              _selectedStructureImage,
+            );
+
+            if (!mounted || !saved) return;
+
+            _goToAdministrative();
+            await getstructureProvider.getStructures(context);
+          },
+          body: Form(
             key: _formKey,
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom:
-                      MediaQuery.of(context).viewInsets.bottom +
-                      FloatingActionBar.contentBottomPadding(context),
-                  right: 10,
-                  top: 10,
-                  left: 10,
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        spreadRadius: 2,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                    border: Border.all(color: Colors.grey.shade200, width: 0.5),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.max,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "Add Location Details:",
-                              style: w600_18Poppins(),
-                            ),
-                            if (hasExistingData)
-                              CustomButton(
-                                buttonText: "Skip",
-                                borderRadius: 10.r,
-                                buttonColor: Colors.transparent,
-                                buttonTextStyle: w700_15Poppins(
-                                  color: Appcolors.buttonColor,
-                                ),
-                                width: 60.w,
-                                height: 30.h,
-                                borderColor: Appcolors.buttonColor,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          AdministrativeGeometricdetails(
-                                            structureId: widget.structureId,
-                                            selectedCommercialType:
-                                                selectedCommercialType ?? "",
-                                            selectedStructureType:
-                                                selectedStructureType ?? "",
-                                            selectedStructureSubType:
-                                                selectedStructureSubType ?? "",
-                                          ),
-                                    ),
-                                  );
-                                },
-                              ),
+            child: Column(
+              children: [
+                _buildAddressCard(),
+                const SizedBox(height: 12),
+                _buildMapCard(),
+                const SizedBox(height: 12),
+                _buildStructureCard(),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
-                            // Add current location button
-                            IconButton(
-                              onPressed: _isLoadingLocation
-                                  ? null
-                                  : _getCurrentLocation,
-                              tooltip: 'Get current location',
-                              icon: Icon(
-                                Icons.my_location,
-                                color: _isLoadingLocation
-                                    ? Colors.grey
-                                    : Colors.blue,
-                                size: 24,
-                              ),
-                            ),
-                          ],
-                        ),
-                        height10,
-                        Text(
-                          "STR: ${getStructureProvider.getLocationDetailsByStrId?.data.structuralIdentity.structuralIdentityNumber ?? widget.structureId}",
-                          style: w500_16Poppins(),
-                        ),
-                        height5,
-                        Row(
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("State:", style: w500_15Poppins()),
-                                height5,
-                                SizedBox(
-                                  height: 40.h,
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.35,
-                                  child: DropdownButtonFormField<String>(
-                                    dropdownColor: Appcolors.textformFillColor,
-                                    menuMaxHeight: 220.h,
-                                    hint: Text(
-                                      "Select State",
-                                      style: w400_15Poppins(),
-                                    ),
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: Appcolors.textformFillColor,
-                                      focusColor: Appcolors.textformFillColor,
-                                      hoverColor: Appcolors.textformFillColor,
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade400,
-                                        ),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade400,
-                                        ),
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade400,
-                                        ),
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 10,
-                                          ),
-                                    ),
-                                    value: selectedState,
-                                    isExpanded: true,
-                                    items: statesList.map((state) {
-                                      return DropdownMenuItem<String>(
-                                        value: state,
-                                        child: Text(
-                                          state,
-                                          style: w400_17Poppins(),
-                                        ),
-                                      );
-                                    }).toList(),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        selectedState = value;
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                            width10,
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("Zip code:", style: w500_15Poppins()),
-                                height5,
-                                SizedBox(
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.35,
-                                  child: CommonTextFormField(
-                                    fillColor: Appcolors.textformFillColor,
-                                    borderColor: Colors.grey.shade400,
-                                    controller: zipCodeController,
-                                    labelStyle: w400_15Poppins(),
-                                    hintStyle: w400_14Poppins(),
-                                    validator: (val, String? f) {
-                                      return FormValidations.requiredFieldValidation(
-                                        val,
-                                        "Please enter zip code",
-                                      );
-                                    },
-                                    hintText: "Enter your zip code",
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        height10,
-                        Row(
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "City/village/Town:",
-                                  style: w500_15Poppins(),
-                                ),
-                                height5,
-                                SizedBox(
-                                  height: 40.h,
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.35,
-                                  child: CommonTextFormField(
-                                    controller: cityController,
-                                    labelStyle: w400_15Poppins(),
-                                    fillColor: Appcolors.textformFillColor,
-                                    borderColor: Colors.grey.shade400,
-                                    validator: (val, String? f) {
-                                      return FormValidations.requiredFieldValidation(
-                                        val,
-                                        "Please enter City/village/Town",
-                                      );
-                                    },
-                                    hintText: "Enter City/village/Town",
-                                    hintStyle: w400_14Poppins(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            width10,
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("Address:", style: w500_15Poppins()),
-                                height5,
-                                SizedBox(
-                                  height: 40.h,
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.35,
-                                  child: CommonTextFormField(
-                                    fillColor: Appcolors.textformFillColor,
-                                    borderColor: Colors.grey.shade400,
-                                    labelStyle: w400_15Poppins(),
-                                    hintStyle: w400_14Poppins(),
-                                    controller: addressController,
-                                    hintText: "Enter address",
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [],
-                        ),
-                        height10,
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("Structure Image:", style: w500_15Poppins()),
-                            height5,
-                            InkWell(
-                              onTap: _pickStructureImage,
-                              borderRadius: BorderRadius.circular(14),
-                              child: Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Appcolors.textformFillColor,
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: Colors.grey.shade400,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: _selectedStructureImage != null
-                                          ? Image.file(
-                                              _selectedStructureImage!,
-                                              width: 72.w,
-                                              height: 72.h,
-                                              fit: BoxFit.cover,
-                                            )
-                                          : (_existingStructureImageUrl !=
-                                                    null &&
-                                                _existingStructureImageUrl!
-                                                    .isNotEmpty)
-                                          ? Image.network(
-                                              _existingStructureImageUrl!,
-                                              width: 72.w,
-                                              height: 72.h,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (_, __, ___) =>
-                                                  _buildStructureImagePlaceholder(),
-                                            )
-                                          : _buildStructureImagePlaceholder(),
-                                    ),
-                                    width10,
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            _selectedStructureImage != null
-                                                ? 'Image selected'
-                                                : _existingStructureImageUrl !=
-                                                      null
-                                                ? 'Current image'
-                                                : 'Upload structure thumbnail',
-                                            style: w500_15Poppins(),
-                                          ),
-                                          height5,
-                                          Text(
-                                            _selectedStructureImage != null
-                                                ? _selectedStructureImage!.path
-                                                      .split(
-                                                        Platform.pathSeparator,
-                                                      )
-                                                      .last
-                                                : 'Tap to choose an image for the structure card',
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: w400_12Poppins(
-                                              color: Colors.grey.shade700,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Icon(
-                                      Icons.photo_camera_back_outlined,
-                                      color: Appcolors.buttonColor,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        height10,
-                        Stack(
-                          children: [
-                            Container(
-                              height: 180.h,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade400),
-                              ),
-                              width: double.infinity,
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: GoogleMap(
-                                  cameraTargetBounds: CameraTargetBounds(
-                                    indiaBounds,
-                                  ),
-                                  mapType: MapType.normal,
-                                  zoomControlsEnabled: true,
-                                  markers: _markers,
-                                  initialCameraPosition: _kGooglePlex,
-                                  onMapCreated: (GoogleMapController controller) {
-                                    _controller.complete(controller);
-                                    // Apply any coordinates that were ready before the map was built
-                                    if (_pendingLatLng != null) {
-                                      final pending = _pendingLatLng!;
-                                      _pendingLatLng = null;
-                                      controller.animateCamera(
-                                        CameraUpdate.newLatLngZoom(
-                                          pending,
-                                          17.0,
-                                        ),
-                                      );
-                                      debugPrint(
-                                        "Applied pending coordinates on map creation: ${pending.latitude}, ${pending.longitude}",
-                                      );
-                                    }
-                                  },
-                                  onTap: (LatLng position) {
-                                    // Update marker and coordinates when user taps on map
-                                    setState(() {
-                                      latitudeController.text = position
-                                          .latitude
-                                          .toStringAsFixed(6);
-                                      longitudeController.text = position
-                                          .longitude
-                                          .toStringAsFixed(6);
-
-                                      lastMarkerPosition = position;
-                                      _markers = {
-                                        Marker(
-                                          markerId: const MarkerId(
-                                            'selected_location',
-                                          ),
-                                          position: position,
-                                          infoWindow: InfoWindow(
-                                            title: 'Selected Location',
-                                            snippet:
-                                                '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}',
-                                          ),
-                                          icon:
-                                              BitmapDescriptor.defaultMarkerWithHue(
-                                                BitmapDescriptor.hueRed,
-                                              ),
-                                        ),
-                                      };
-                                    });
-
-                                    // Reverse geocode to get address info
-                                    _getAddressFromLatLng(position);
-                                  },
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              right: 10,
-                              top: 10,
-                              child: IconButton(
-                                onPressed: _moveMapToAddress,
-                                tooltip: 'Locate address on map',
-                                icon: Icon(
-                                  Icons.assistant_navigation,
-                                  size: 45,
-                                  color: Colors.blue,
-                                ),
-                              ),
-                            ),
-                            // Add current location button on map
-                            Positioned(
-                              left: 10,
-                              top: 10,
-                              child: FloatingActionButton.small(
-                                onPressed: _isLoadingLocation
-                                    ? null
-                                    : _getCurrentLocation,
-                                tooltip: 'Get current location',
-                                backgroundColor: Colors.white,
-                                child: _isLoadingLocation
-                                    ? SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Icon(
-                                        Icons.my_location,
-                                        color: Colors.blue,
-                                      ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        height10,
-                        Row(
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("Latitude Code:", style: w500_15Poppins()),
-                                height5,
-                                SizedBox(
-                                  height: 40.h,
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.23,
-                                  child: CommonTextFormField(
-                                    fillColor: Appcolors.textformFillColor,
-                                    keyboardType:
-                                        TextInputType.numberWithOptions(
-                                          decimal: true,
-                                        ),
-                                    borderColor: Colors.grey.shade400,
-                                    validator: (val, String? f) {
-                                      return FormValidations.requiredFieldValidation(
-                                        val,
-                                        "Please enter latitude code",
-                                      );
-                                    },
-                                    hintText: "Enter Latitude Code",
-                                    controller: latitudeController,
-                                    hintStyle: w400_14Poppins(),
-                                    labelStyle: w400_15Poppins(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            width10,
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Longitude Code:",
-                                  style: w500_15Poppins(),
-                                ),
-                                height5,
-                                SizedBox(
-                                  height: 40.h,
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.23,
-                                  child: CommonTextFormField(
-                                    fillColor: Appcolors.textformFillColor,
-                                    borderColor: Colors.grey.shade400,
-                                    keyboardType:
-                                        TextInputType.numberWithOptions(
-                                          decimal: true,
-                                        ),
-                                    controller: longitudeController,
-                                    hintText: "Enter Longitude Code",
-                                    validator: (val, String? f) {
-                                      return FormValidations.requiredFieldValidation(
-                                        val,
-                                        "Please enter longitude code",
-                                      );
-                                    },
-                                    labelStyle: w400_15Poppins(),
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            width10,
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Age of Structure(Yrs):",
-                                  style: w500_15Poppins(),
-                                ),
-                                height5,
-                                SizedBox(
-                                  height: 40.h,
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.23,
-                                  child: CommonTextFormField(
-                                    fillColor: Appcolors.textformFillColor,
-                                    borderColor: Colors.grey.shade400,
-                                    keyboardType:
-                                        TextInputType.numberWithOptions(
-                                          decimal: true,
-                                        ),
-                                    controller: structureAgeController,
-                                    hintText: "Enter Structure age",
-                                    validator: (val, String? f) {
-                                      return FormValidations.requiredFieldValidation(
-                                        val,
-                                        "Please enter structure age",
-                                      );
-                                    },
-                                    labelStyle: w400_15Poppins(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        height10,
-                        Row(
-                          children: [
-                            Column(
-                              children: [
-                                Text(
-                                  "Structure Name:",
-                                  style: w500_15Poppins(),
-                                ),
-
-                                height5,
-                                SizedBox(
-                                  height: 40.h,
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.35,
-                                  child: CommonTextFormField(
-                                    fillColor: Appcolors.textformFillColor,
-                                    borderColor: Colors.grey.shade400,
-
-                                    controller: structureNameController,
-                                    hintText: "Enter Structure Name",
-
-                                    labelStyle: w400_15Poppins(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            width10,
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-
-                              children: [
-                                Text(
-                                  "Structure Type:",
-                                  style: w500_15Poppins(),
-                                ),
-                                height5,
-
-                                SizedBox(
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.35,
-                                  child: DropdownButtonFormField<String>(
-                                    dropdownColor: Appcolors.textformFillColor,
-                                    hint: Text(
-                                      "Select structure",
-                                      style: w400_15Poppins(),
-                                    ),
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: Appcolors.textformFillColor,
-                                      focusColor: Appcolors.textformFillColor,
-                                      hoverColor: Appcolors.textformFillColor,
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade400,
-                                        ),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade400,
-                                        ),
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade400,
-                                        ),
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 10,
-                                          ),
-                                    ),
-                                    value: selectedStructureType,
-                                    isExpanded: true,
-                                    items: structureList.map((state) {
-                                      return DropdownMenuItem<String>(
-                                        value: state,
-                                        child: Text(
-                                          state,
-                                          style: w400_15Poppins(),
-                                        ),
-                                      );
-                                    }).toList(),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        selectedStructureType = value;
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        height10,
-                        Row(
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Structure Sub-Type:",
-                                  style: w500_15Poppins(),
-                                ),
-                                height5,
-                                SizedBox(
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.35,
-                                  child: DropdownButtonFormField<String>(
-                                    dropdownColor: Appcolors.textformFillColor,
-                                    hint: Text(
-                                      "Select structure",
-                                      style: w400_15Poppins(),
-                                    ),
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: Appcolors.textformFillColor,
-                                      focusColor: Appcolors.textformFillColor,
-                                      hoverColor: Appcolors.textformFillColor,
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade400,
-                                        ),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade400,
-                                        ),
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade400,
-                                        ),
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 10,
-                                          ),
-                                    ),
-                                    value: selectedStructureSubType,
-                                    isExpanded: true,
-                                    items: structureSubList.map((state) {
-                                      return DropdownMenuItem<String>(
-                                        value: state,
-                                        child: Text(
-                                          state,
-                                          style: w400_15Poppins(),
-                                        ),
-                                      );
-                                    }).toList(),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        selectedStructureSubType = value;
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                            width10,
-                            Visibility(
-                              visible: selectedStructureType == "commercial",
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Commercial Structure Type:",
-                                    style: w500_15Poppins(),
-                                  ),
-                                  height5,
-                                  SizedBox(
-                                    width:
-                                        MediaQuery.of(context).size.width *
-                                        0.35,
-                                    child: DropdownButtonFormField<String>(
-                                      dropdownColor:
-                                          Appcolors.textformFillColor,
-                                      hint: Text(
-                                        "Select structure",
-                                        style: w400_15Poppins(),
-                                      ),
-                                      validator: (value) {
-                                        if (selectedStructureType ==
-                                                "commercial" &&
-                                            value == null) {
-                                          return "Please select commercial structure type";
-                                        }
-                                        return null;
-                                      },
-                                      decoration: InputDecoration(
-                                        filled: true,
-                                        fillColor: Appcolors.textformFillColor,
-                                        focusColor: Appcolors.textformFillColor,
-                                        hoverColor: Appcolors.textformFillColor,
-                                        focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          borderSide: BorderSide(
-                                            color: Colors.grey.shade400,
-                                          ),
-                                        ),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          borderSide: BorderSide(
-                                            color: Colors.grey.shade400,
-                                          ),
-                                        ),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          borderSide: BorderSide(
-                                            color: Colors.grey.shade400,
-                                          ),
-                                        ),
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 10,
-                                            ),
-                                      ),
-                                      value: selectedCommercialType,
-                                      isExpanded: true,
-                                      items: commercialList.map((state) {
-                                        return DropdownMenuItem<String>(
-                                          value: state,
-                                          child: Text(
-                                            state,
-                                            style: w400_15Poppins(),
-                                          ),
-                                        );
-                                      }).toList(),
-                                      onChanged: (value) {
-                                        setState(() {
-                                          selectedCommercialType = value;
-                                          print("object $value");
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+  // ── Address ────────────────────────────────────────────────────────────────
+  Widget _buildAddressCard() {
+    return FormCard(
+      title: "Address",
+      trailing: IconButton(
+        onPressed: _isLoadingLocation ? null : _getCurrentLocation,
+        tooltip: 'Use my current location',
+        icon: Icon(
+          Icons.my_location_rounded,
+          size: 20,
+          color: _isLoadingLocation ? FormKit.hintColor : Appcolors.buttonColor,
+        ),
+      ),
+      children: [
+        FormGrid(
+          children: [
+            LabeledField(
+              label: "State",
+              isRequired: true,
+              child: RadioGroupDropdown<String>(
+                options: radioOptionsFromStrings(statesList),
+                value: selectedState,
+                hintText: "Select state",
+                sheetTitle: "Select state",
+                validator: (value) =>
+                    value == null ? "Please select a state" : null,
+                onChanged: (value) => setState(() => selectedState = value),
+              ),
+            ),
+            LabeledField(
+              label: "Zip code",
+              isRequired: true,
+              child: FormTextField(
+                controller: zipCodeController,
+                hintText: "Enter zip code",
+                keyboardType: TextInputType.number,
+                validator: (val, String? f) =>
+                    FormValidations.requiredFieldValidation(
+                  val,
+                  "Please enter zip code",
                 ),
               ),
             ),
-          );
-        },
-      ),
-      extendBody: true,
-      bottomNavigationBar: Consumer<AddstructureProvider>(
-        builder: (context, addStructureProvider, child) {
-          return FloatingActionBar(
-            children: [
-              CustomButton(
-                buttonText: "Back",
-                borderRadius: 10.r,
-                buttonColor: Colors.transparent,
-                buttonTextStyle: w700_15Poppins(color: Appcolors.buttonColor),
-                width: 140.w,
-                height: 40.h,
-                borderColor: Appcolors.buttonColor,
-                onTap: () {
-                  Navigator.pop(context);
-                },
+            LabeledField(
+              label: "City / Village / Town",
+              isRequired: true,
+              child: FormTextField(
+                controller: cityController,
+                hintText: "Enter city, village or town",
+                validator: (val, String? f) =>
+                    FormValidations.requiredFieldValidation(
+                  val,
+                  "Please enter City/village/Town",
+                ),
               ),
-              CustomButton(
-                buttonText: "Next",
-                borderRadius: 10.r,
-                buttonColor: Appcolors.buttonColor,
-                buttonTextStyle: w700_15Poppins(color: Colors.white),
-                width: 160.w,
-                height: 40.h,
-                borderColor: Appcolors.buttonColor,
-                onTap: () async {
-                  if (_formKey.currentState?.validate() ?? false) {
-                    final isUpdate =
-                        Provider.of<GetstructureProvider>(
-                          context,
-                          listen: false,
-                        ).getLocationDetailsByStrId?.data !=
-                        null;
+            ),
+            LabeledField(
+              label: "Address",
+              child: FormTextField(
+                controller: addressController,
+                hintText: "Enter address",
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
-                    await addStructureProvider
-                        .submitLocationData(
-                          context,
-                          selectedState!,
-                          zipCodeController.text,
-                          cityController.text,
-                          selectedStructureType!,
-                          latitudeController.text,
-                          longitudeController.text,
-                          addressController.text,
-                          isUpdate,
-                          widget.structureId,
-                          structureNameController.text,
-                          selectedStructureSubType!,
-                          selectedCommercialType ?? "only_commercial",
-                          structureAgeController.text.toString(),
-                          _selectedStructureImage,
-                        )
-                        .then((value) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  AdministrativeGeometricdetails(
-                                    structureId: widget.structureId,
-                                    selectedCommercialType:
-                                        selectedCommercialType ?? "",
-                                    selectedStructureType:
-                                        selectedStructureType!,
-                                    selectedStructureSubType:
-                                        selectedStructureSubType!,
-                                  ),
-                            ),
-                          );
-                        });
-                    await getstructureProvider.getStructures(context);
-                  }
-                },
+  // ── Map + coordinates ──────────────────────────────────────────────────────
+  Widget _buildMapCard() {
+    return FormCard(
+      title: "Pin the location",
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            height: 220,
+            width: double.infinity,
+            child: Stack(
+              children: [
+                GoogleMap(
+                  cameraTargetBounds: CameraTargetBounds(indiaBounds),
+                  mapType: MapType.normal,
+                  zoomControlsEnabled: true,
+                  markers: _markers,
+                  initialCameraPosition: _kGooglePlex,
+                  onMapCreated: (GoogleMapController controller) {
+                    _controller.complete(controller);
+                    // Apply any coordinates that were ready before the map was built
+                    if (_pendingLatLng != null) {
+                      final pending = _pendingLatLng!;
+                      _pendingLatLng = null;
+                      controller.animateCamera(
+                        CameraUpdate.newLatLngZoom(pending, 17.0),
+                      );
+                    }
+                  },
+                  onTap: (LatLng position) {
+                    setState(() {
+                      latitudeController.text =
+                          position.latitude.toStringAsFixed(6);
+                      longitudeController.text =
+                          position.longitude.toStringAsFixed(6);
+
+                      lastMarkerPosition = position;
+                      _markers = {
+                        Marker(
+                          markerId: const MarkerId('selected_location'),
+                          position: position,
+                          infoWindow: InfoWindow(
+                            title: 'Selected Location',
+                            snippet:
+                                '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}',
+                          ),
+                          icon: BitmapDescriptor.defaultMarkerWithHue(
+                            BitmapDescriptor.hueRed,
+                          ),
+                        ),
+                      };
+                    });
+
+                    _getAddressFromLatLng(position);
+                  },
+                ),
+                Positioned(
+                  left: 10,
+                  top: 10,
+                  child: _MapChipButton(
+                    icon: Icons.my_location_rounded,
+                    label: 'My location',
+                    isBusy: _isLoadingLocation,
+                    onTap: _isLoadingLocation ? null : _getCurrentLocation,
+                  ),
+                ),
+                Positioned(
+                  right: 10,
+                  top: 10,
+                  child: _MapChipButton(
+                    icon: Icons.travel_explore_rounded,
+                    label: 'Locate address',
+                    onTap: _moveMapToAddress,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: FormKit.rowGap),
+        FormGrid(
+          columns: 3,
+          minItemWidth: 170,
+          children: [
+            LabeledField(
+              label: "Latitude",
+              isRequired: true,
+              child: FormTextField(
+                controller: latitudeController,
+                hintText: "Latitude",
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                validator: (val, String? f) =>
+                    FormValidations.requiredFieldValidation(
+                  val,
+                  "Please enter latitude code",
+                ),
+              ),
+            ),
+            LabeledField(
+              label: "Longitude",
+              isRequired: true,
+              child: FormTextField(
+                controller: longitudeController,
+                hintText: "Longitude",
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                validator: (val, String? f) =>
+                    FormValidations.requiredFieldValidation(
+                  val,
+                  "Please enter longitude code",
+                ),
+              ),
+            ),
+            LabeledField(
+              label: "Age of structure (Yrs)",
+              isRequired: true,
+              child: FormTextField(
+                controller: structureAgeController,
+                hintText: "Enter age",
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                validator: (val, String? f) =>
+                    FormValidations.requiredFieldValidation(
+                  val,
+                  "Please enter structure age",
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ── Structure identity ─────────────────────────────────────────────────────
+  Widget _buildStructureCard() {
+    final isCommercial = selectedStructureType == "commercial";
+
+    return FormCard(
+      title: "Structure",
+      children: [
+        _buildImagePicker(),
+        const SizedBox(height: FormKit.rowGap),
+        FormGrid(
+          children: [
+            LabeledField(
+              label: "Structure name",
+              child: FormTextField(
+                controller: structureNameController,
+                hintText: "Enter structure name",
+              ),
+            ),
+            LabeledField(
+              label: "Structure type",
+              isRequired: true,
+              child: RadioGroupDropdown<String>(
+                options: radioOptionsFromStrings(
+                  structureList,
+                  labelBuilder: prettifyOptionLabel,
+                ),
+                value: selectedStructureType,
+                hintText: "Select structure type",
+                sheetTitle: "Structure type",
+                validator: (value) =>
+                    value == null ? "Please select a structure type" : null,
+                onChanged: (value) => setState(() {
+                  selectedStructureType = value;
+                  // Commercial subtype only applies to commercial structures —
+                  // drop a stale selection so it can't be submitted.
+                  if (value != "commercial") selectedCommercialType = null;
+                }),
+              ),
+            ),
+            LabeledField(
+              label: "Structure sub-type",
+              isRequired: true,
+              child: RadioGroupDropdown<String>(
+                options: radioOptionsFromStrings(
+                  structureSubList,
+                  labelBuilder: (v) => v.toUpperCase(),
+                ),
+                value: selectedStructureSubType,
+                hintText: "Select sub-type",
+                sheetTitle: "Structure sub-type",
+                validator: (value) =>
+                    value == null ? "Please select a sub-type" : null,
+                onChanged: (value) =>
+                    setState(() => selectedStructureSubType = value),
+              ),
+            ),
+            if (isCommercial)
+              LabeledField(
+                label: "Commercial structure type",
+                isRequired: true,
+                child: RadioGroupDropdown<String>(
+                  options: radioOptionsFromStrings(
+                    commercialList,
+                    labelBuilder: prettifyOptionLabel,
+                  ),
+                  value: selectedCommercialType,
+                  hintText: "Select commercial type",
+                  sheetTitle: "Commercial structure type",
+                  validator: (value) => value == null
+                      ? "Please select commercial structure type"
+                      : null,
+                  onChanged: (value) =>
+                      setState(() => selectedCommercialType = value),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImagePicker() {
+    final hasNewImage = _selectedStructureImage != null;
+    final hasExistingImage = _existingStructureImageUrl != null &&
+        _existingStructureImageUrl!.isNotEmpty;
+
+    return LabeledField(
+      label: "Structure image",
+      child: InkWell(
+        onTap: _pickStructureImage,
+        borderRadius: BorderRadius.circular(FormKit.radius),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: FormKit.fillColor,
+            borderRadius: BorderRadius.circular(FormKit.radius),
+            border: Border.all(color: FormKit.borderColor),
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: hasNewImage
+                    ? Image.file(
+                        _selectedStructureImage!,
+                        width: 64,
+                        height: 64,
+                        fit: BoxFit.cover,
+                      )
+                    : hasExistingImage
+                        ? Image.network(
+                            _existingStructureImageUrl!,
+                            width: 64,
+                            height: 64,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                _buildStructureImagePlaceholder(),
+                          )
+                        : _buildStructureImagePlaceholder(),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      hasNewImage
+                          ? 'Image selected'
+                          : hasExistingImage
+                              ? 'Current image'
+                              : 'Upload structure thumbnail',
+                      style: w600_13Poppins(color: FormKit.labelColor),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      hasNewImage
+                          ? _selectedStructureImage!.path
+                              .split(Platform.pathSeparator)
+                              .last
+                          : 'Tap to choose an image for the structure card',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: w400_12Poppins(color: FormKit.hintColor),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.photo_camera_back_outlined,
+                size: 20,
+                color: Appcolors.buttonColor,
               ),
             ],
-          );
-        },
+          ),
+        ),
       ),
     );
   }
@@ -1536,5 +1084,61 @@ class _AddStructureScreenState extends State<AddStructureScreen> {
         msg: "Unable to locate address. Please check input.",
       );
     }
+  }
+}
+/// Compact pill button overlaid on the map. Sized in raw doubles so it stays a
+/// thumb-sized control on tablets rather than scaling up with ScreenUtil.
+class _MapChipButton extends StatelessWidget {
+  const _MapChipButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isBusy = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final bool isBusy;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null && !isBusy;
+    return Material(
+      color: Colors.white,
+      elevation: 2,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isBusy)
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Icon(
+                  icon,
+                  size: 15,
+                  color: enabled ? Appcolors.buttonColor : FormKit.hintColor,
+                ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: w600_12Poppins(
+                  color: enabled ? Appcolors.buttonColor : FormKit.hintColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
