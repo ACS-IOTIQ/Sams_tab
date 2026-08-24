@@ -59,80 +59,76 @@ class _StoragePermissionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 48,
-              height: 5,
-              margin: const EdgeInsets.only(bottom: 18),
-              decoration: BoxDecoration(
-                color: const Color(0xffD0D5DD),
-                borderRadius: BorderRadius.circular(999),
-              ),
+    // The bottom sheet wrapper already applies the bottom safe-area inset,
+    // so this widget only needs its own content padding.
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 48,
+            height: 5,
+            margin: const EdgeInsets.only(bottom: 18),
+            decoration: BoxDecoration(
+              color: const Color(0xffD0D5DD),
+              borderRadius: BorderRadius.circular(999),
             ),
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: const Color(0xffEFF6FF),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(
-                Icons.folder_outlined,
-                color: Color(0xff155EEF),
-              ),
+          ),
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: const Color(0xffEFF6FF),
+              borderRadius: BorderRadius.circular(14),
             ),
-            const SizedBox(height: 14),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Color(0xff101828),
-              ),
+            child: const Icon(Icons.folder_outlined, color: Color(0xff155EEF)),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Color(0xff101828),
             ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: const TextStyle(
-                fontSize: 14,
-                height: 1.45,
-                color: Color(0xff475467),
-              ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.45,
+              color: Color(0xff475467),
             ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Not now'),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Not now'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    Navigator.of(context).pop();
+                    if (showSettingsButton) {
+                      await openAppSettings();
+                    }
+                  },
+                  child: Text(
+                    showSettingsButton ? 'Open settings' : 'Continue',
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      Navigator.of(context).pop();
-                      if (showSettingsButton) {
-                        await openAppSettings();
-                      }
-                    },
-                    child: Text(
-                      showSettingsButton ? 'Open settings' : 'Continue',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1020,7 +1016,6 @@ class GetstructureProvider extends ChangeNotifier {
         message: message,
         showSettingsButton: showSettingsButton,
       ),
-      height: 245,
       enableDrag: true,
       isDismissible: true,
       backGroundColor: Colors.white,
