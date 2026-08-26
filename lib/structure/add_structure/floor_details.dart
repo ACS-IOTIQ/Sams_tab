@@ -71,11 +71,6 @@ class FloordetailsWidgetState extends State<FloordetailsWidget> {
     "stilt",
     "cellar",
     "sub cellar",
-    "sub cellar 1",
-    "sub cellar 2",
-    "sub cellar 3",
-    "sub cellar 4",
-    "sub cellar 5",
   ];
 
   static const List<String> flatTypeOptions = [

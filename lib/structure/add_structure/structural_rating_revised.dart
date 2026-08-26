@@ -1212,6 +1212,7 @@ class _StructuralRatingState extends State<StructuralRating> {
       values: selected,
       hintText: 'Select distress types',
       sheetTitle: 'Distress types',
+      useAlertDialog: true,
       // "None" stands alone: choosing it clears the rest, and choosing any
       // other type clears it.
       exclusiveValues: const ['none'],

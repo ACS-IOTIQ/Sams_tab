@@ -270,7 +270,7 @@ class _StructureListState extends State<StructureList> {
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
               padding:
-                  const EdgeInsets.fromLTRB(20, 18, 20, 26),
+                  const EdgeInsets.fromLTRB(20, 18, 20, 40),
               child: SafeArea(
                 top: false,
                 child: Column(

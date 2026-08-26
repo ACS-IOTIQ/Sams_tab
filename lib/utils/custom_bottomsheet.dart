@@ -37,7 +37,7 @@ Future<dynamic> customShowDialog(
           isTablet ? 24 : 12,
           0,
           isTablet ? 24 : 12,
-          mediaQuery.viewInsets.bottom + mediaQuery.padding.bottom + 16,
+          mediaQuery.viewInsets.bottom + mediaQuery.padding.bottom + 48,
         ),
         child: Align(
           alignment: Alignment.bottomCenter,

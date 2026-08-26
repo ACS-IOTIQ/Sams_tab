@@ -1294,6 +1294,7 @@ class _NonStructuralRatingState extends State<NonStructuralRating> {
         value: item.distressUnit,
         hintText: "Select unit",
         sheetTitle: "Measurement unit",
+        useAlertDialog: true,
         onChanged: (value) {
           if (value == null) return;
           provider.updateDistressUnit(item, value);

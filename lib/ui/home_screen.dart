@@ -99,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: Color(0xffFBFAF5),
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
-              padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 20.h),
+              padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 32.h),
               child: SafeArea(
                 top: false,
                 child: Column(

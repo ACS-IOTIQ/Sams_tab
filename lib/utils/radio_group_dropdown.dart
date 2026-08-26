@@ -31,6 +31,7 @@ class RadioGroupDropdown<T> extends FormField<T> {
     super.enabled = true,
     this.showClear = false,
     this.searchThreshold = 12,
+    this.useAlertDialog = false,
     super.validator,
     super.autovalidateMode = AutovalidateMode.onUserInteraction,
   }) : super(
@@ -53,19 +54,42 @@ class RadioGroupDropdown<T> extends FormField<T> {
               if (!self.enabled) return;
               FocusScope.of(context).unfocus();
 
-              final result = await showModalBottomSheet<_SheetResult<T>>(
-                context: context,
-                isScrollControlled: true,
-                useSafeArea: true,
-                backgroundColor: Colors.transparent,
-                builder: (_) => _RadioSheet<T>(
-                  title: self.sheetTitle ?? self.hintText ?? 'Select an option',
-                  options: self.options,
-                  value: current,
-                  showClear: self.showClear,
-                  showSearch: self.options.length >= self.searchThreshold,
-                ),
+              final sheet = _RadioSheet<T>(
+                title: self.sheetTitle ?? self.hintText ?? 'Select an option',
+                options: self.options,
+                value: current,
+                showClear: self.showClear,
+                showSearch: self.options.length >= self.searchThreshold,
               );
+              final result = self.useAlertDialog
+                  ? await showDialog<_SheetResult<T>>(
+                      context: context,
+                      builder: (dialogContext) {
+                        final size = MediaQuery.sizeOf(dialogContext);
+                        return AlertDialog(
+                          insetPadding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 32,
+                          ),
+                          contentPadding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          content: SizedBox(
+                            width: size.width > 568 ? 520 : size.width - 48,
+                            height: self._dialogHeight(size),
+                            child: sheet,
+                          ),
+                        );
+                      },
+                    )
+                  : await showModalBottomSheet<_SheetResult<T>>(
+                      context: context,
+                      isScrollControlled: true,
+                      useSafeArea: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => sheet,
+                    );
 
               if (result == null) return;
               field.didChange(result.value);
@@ -138,6 +162,15 @@ class RadioGroupDropdown<T> extends FormField<T> {
   final String? sheetTitle;
   final bool showClear;
   final int searchThreshold;
+  final bool useAlertDialog;
+
+  double _dialogHeight(Size size) {
+    final desired =
+        140.0 + (options.length * 52.0) +
+        (options.length >= searchThreshold ? 56.0 : 0.0);
+    final maximum = size.height * 0.72;
+    return desired > maximum ? maximum : desired;
+  }
 
   @override
   FormFieldState<T> createState() => _RadioGroupDropdownState<T>();
@@ -331,7 +364,7 @@ class _RadioSheetState<T> extends State<_RadioSheet<T>> {
                         },
                       ),
               ),
-              SizedBox(height: media.padding.bottom > 0 ? 4 : 12),
+              SizedBox(height: media.padding.bottom + 24),
             ],
           ),
         ),
@@ -378,6 +411,7 @@ class CheckboxGroupDropdown<T> extends StatelessWidget {
     this.enabled = true,
     this.searchThreshold = 12,
     this.errorText,
+    this.useAlertDialog = false,
   });
 
   final List<RadioOption<T>> options;
@@ -389,6 +423,16 @@ class CheckboxGroupDropdown<T> extends StatelessWidget {
   final bool enabled;
   final int searchThreshold;
   final String? errorText;
+  final bool useAlertDialog;
+
+  double _dialogHeight(Size size) {
+    // A fixed 72% height left a large blank area under short distress lists.
+    final desired =
+        150.0 + (options.length * 52.0) +
+        (options.length >= searchThreshold ? 56.0 : 0.0);
+    final maximum = size.height * 0.72;
+    return desired > maximum ? maximum : desired;
+  }
 
   String? get _summary {
     if (values.isEmpty) return null;
@@ -408,19 +452,43 @@ class CheckboxGroupDropdown<T> extends StatelessWidget {
     if (!enabled) return;
     FocusScope.of(context).unfocus();
 
-    final result = await showModalBottomSheet<List<T>>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _CheckboxSheet<T>(
-        title: sheetTitle ?? hintText ?? 'Select options',
-        options: options,
-        values: values,
-        exclusiveValues: exclusiveValues,
-        showSearch: options.length >= searchThreshold,
-      ),
+    final sheet = _CheckboxSheet<T>(
+      title: sheetTitle ?? hintText ?? 'Select options',
+      options: options,
+      values: values,
+      exclusiveValues: exclusiveValues,
+      showSearch: options.length >= searchThreshold,
+      asDialog: useAlertDialog,
     );
+    final result = useAlertDialog
+        ? await showDialog<List<T>>(
+            context: context,
+            builder: (dialogContext) {
+              final size = MediaQuery.sizeOf(dialogContext);
+              return AlertDialog(
+                insetPadding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 32,
+                ),
+                contentPadding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                content: SizedBox(
+                  width: size.width > 568 ? 520 : size.width - 48,
+                  height: _dialogHeight(size),
+                  child: sheet,
+                ),
+              );
+            },
+          )
+        : await showModalBottomSheet<List<T>>(
+            context: context,
+            isScrollControlled: true,
+            useSafeArea: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => sheet,
+          );
 
     if (result == null) return;
     onChanged(result);
@@ -511,6 +579,7 @@ class _CheckboxSheet<T> extends StatefulWidget {
     required this.values,
     required this.exclusiveValues,
     required this.showSearch,
+    this.asDialog = false,
   });
 
   final String title;
@@ -518,6 +587,7 @@ class _CheckboxSheet<T> extends StatefulWidget {
   final List<T> values;
   final List<T> exclusiveValues;
   final bool showSearch;
+  final bool asDialog;
 
   @override
   State<_CheckboxSheet<T>> createState() => _CheckboxSheetState<T>();
@@ -563,30 +633,32 @@ class _CheckboxSheetState<T> extends State<_CheckboxSheet<T>> {
     final media = MediaQuery.of(context);
     final visible = _visible;
 
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: ConstrainedBox(
+    final content = ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 520,
-          maxHeight: media.size.height * 0.72,
+          maxHeight: media.size.height * 0.45,
         ),
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+            borderRadius: widget.asDialog
+                ? BorderRadius.circular(16)
+                : const BorderRadius.vertical(top: Radius.circular(22)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 10),
-              Container(
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xffD0D5DD),
-                  borderRadius: BorderRadius.circular(999),
+              if (!widget.asDialog) ...[
+                const SizedBox(height: 10),
+                Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xffD0D5DD),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
                 ),
-              ),
+              ],
               Padding(
                 padding: const EdgeInsets.fromLTRB(18, 14, 10, 4),
                 child: Row(
@@ -616,7 +688,7 @@ class _CheckboxSheetState<T> extends State<_CheckboxSheet<T>> {
               if (widget.showSearch)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
-                  child: TextField(
+                  child: TextField(   
                     controller: _searchController,
                     style: FormKit.valueStyle,
                     onChanged: (v) => setState(() => _query = v),
@@ -689,12 +761,12 @@ class _CheckboxSheetState<T> extends State<_CheckboxSheet<T>> {
                       ),
               ),
               const Divider(height: 1, color: Color(0xffF1F5F9)),
-              Padding(
+              Padding(   
                 padding: EdgeInsets.fromLTRB(
                   16,
                   10,
                   16,
-                  media.padding.bottom > 0 ? 6 : 14,
+                  media.padding.bottom + 14,
                 ),
                 child: Row(
                   children: [
@@ -716,7 +788,10 @@ class _CheckboxSheetState<T> extends State<_CheckboxSheet<T>> {
             ],
           ),
         ),
-      ),
-    );
+      );
+
+    return widget.asDialog
+        ? content
+        : Align(alignment: Alignment.bottomCenter, child: content);
   }
 }
