@@ -335,31 +335,37 @@ class _RadioSheetState<T> extends State<_RadioSheet<T>> {
                         itemBuilder: (context, i) {
                           final option = visible[i];
                           final isSelected = option.value == widget.value;
-                          return RadioListTile<T>(
-                            value: option.value,
-                            groupValue: widget.value,
-                            onChanged: (v) => Navigator.of(context)
-                                .pop(_SheetResult<T>(v)),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: Appcolors.buttonColor,
-                            dense: true,
-                            visualDensity: VisualDensity.compact,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                          return Material(
+                            color: Colors.transparent,
+                            child: RadioListTile<T>(
+                              value: option.value,
+                              groupValue: widget.value,
+                              onChanged: (v) => Navigator.of(context)
+                                  .pop(_SheetResult<T>(v)),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: Appcolors.buttonColor,
+                              dense: true,
+                              visualDensity: VisualDensity.compact,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              title: Text(
+                                option.label,
+                                style: isSelected
+                                    ? w600_14Poppins(
+                                        color: Appcolors.buttonColor,
+                                      )
+                                    : FormKit.valueStyle,
+                              ),
+                              subtitle: option.subtitle == null
+                                  ? null
+                                  : Text(
+                                      option.subtitle!,
+                                      style: w400_12Poppins(
+                                        color: FormKit.hintColor,
+                                      ),
+                                    ),
                             ),
-                            title: Text(
-                              option.label,
-                              style: isSelected
-                                  ? w600_14Poppins(color: Appcolors.buttonColor)
-                                  : FormKit.valueStyle,
-                            ),
-                            subtitle: option.subtitle == null
-                                ? null
-                                : Text(
-                                    option.subtitle!,
-                                    style: w400_12Poppins(
-                                        color: FormKit.hintColor),
-                                  ),
                           );
                         },
                       ),
@@ -732,30 +738,36 @@ class _CheckboxSheetState<T> extends State<_CheckboxSheet<T>> {
                         itemBuilder: (context, i) {
                           final option = visible[i];
                           final isSelected = _selected.contains(option.value);
-                          return CheckboxListTile(
-                            value: isSelected,
-                            onChanged: (v) => _toggle(option.value, v ?? false),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: Appcolors.buttonColor,
-                            dense: true,
-                            visualDensity: VisualDensity.compact,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            title: Text(
-                              option.label,
-                              style: isSelected
-                                  ? w600_14Poppins(color: Appcolors.buttonColor)
-                                  : FormKit.valueStyle,
-                            ),
-                            subtitle: option.subtitle == null
-                                ? null
-                                : Text(
-                                    option.subtitle!,
-                                    style: w400_12Poppins(
-                                      color: FormKit.hintColor,
+                          return Material(
+                            color: Colors.transparent,
+                            child: CheckboxListTile(
+                              value: isSelected,
+                              onChanged: (v) =>
+                                  _toggle(option.value, v ?? false),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: Appcolors.buttonColor,
+                              dense: true,
+                              visualDensity: VisualDensity.compact,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              title: Text(
+                                option.label,
+                                style: isSelected
+                                    ? w600_14Poppins(
+                                        color: Appcolors.buttonColor,
+                                      )
+                                    : FormKit.valueStyle,
+                              ),
+                              subtitle: option.subtitle == null
+                                  ? null
+                                  : Text(
+                                      option.subtitle!,
+                                      style: w400_12Poppins(
+                                        color: FormKit.hintColor,
+                                      ),
                                     ),
-                                  ),
+                            ),
                           );
                         },
                       ),

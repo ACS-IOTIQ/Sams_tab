@@ -11,17 +11,18 @@ import 'package:sams_engineering_console/provider/common_provider.dart';
 import 'package:sams_engineering_console/utils/custom_toast.dart';
 
 /// Returns the first validation error for a rating collection, if any.
-/// Dimensions are deliberately optional; only the selected NO'S quantity is
-/// required because it is the measurement for that unit.
+/// Dimensions are optional, but every distress entry must have a count.
 String? validateRatingsForSubmission(Map<String, List<RatingItem>> ratings) {
   for (final entry in ratings.entries) {
     for (final item in entry.value) {
       if (item.rating == null || item.rating! < 1 || item.rating! > 5) {
         return 'Please enter valid ratings (1-5) for all items';
       }
-      if (item.distressUnit == DistressMeasurementUnit.nos &&
-          item.numberController.text.trim().isEmpty) {
-        return 'Please enter No. for all items measured in No.s';
+      if (item.distressUnit == DistressMeasurementUnit.nos) {
+        return 'Please select a measurement unit for all items';
+      }
+      if (item.numberController.text.trim().isEmpty) {
+        return 'Please enter No. for all items';
       }
     }
   }
@@ -36,13 +37,8 @@ class AddRatingsStructureProvider extends ChangeNotifier {
 
   Map<String, dynamic> _buildDistressDimensionsPayload(RatingItem item) {
     final unit = item.distressUnit;
-    // A count is entered separately from physical dimensions.
-    final length = double.tryParse(
-          (unit == DistressMeasurementUnit.nos
-                  ? item.numberController.text
-                  : item.lengthController.text)
-              .trim(),
-        ) ??
+    final number = double.tryParse(item.numberController.text.trim()) ?? 0;
+    final length = double.tryParse(item.lengthController.text.trim()) ??
         0;
     final breadth = double.tryParse(item.widthController.text.trim()) ?? 0;
     final height = double.tryParse(item.heightController.text.trim()) ?? 0;
@@ -50,6 +46,7 @@ class AddRatingsStructureProvider extends ChangeNotifier {
     switch (unit) {
       case DistressMeasurementUnit.rm:
         return {
+          "number": number,
           "length": length,
           "breadth": 0,
           "height": 0,
@@ -57,6 +54,7 @@ class AddRatingsStructureProvider extends ChangeNotifier {
         };
       case DistressMeasurementUnit.sqm:
         return {
+          "number": number,
           "length": length,
           "breadth": breadth,
           "height": 0,
@@ -64,6 +62,7 @@ class AddRatingsStructureProvider extends ChangeNotifier {
         };
       case DistressMeasurementUnit.cum:
         return {
+          "number": number,
           "length": length,
           "breadth": breadth,
           "height": height,
@@ -71,8 +70,8 @@ class AddRatingsStructureProvider extends ChangeNotifier {
         };
       case DistressMeasurementUnit.nos:
         return {
-          // Keep count distinct from physical dimensions.
-          "number": length,
+          // Retained for reading and resubmitting older records.
+          "number": number,
           "length": 0,
           "breadth": 0,
           "height": 0,
@@ -207,7 +206,8 @@ class AddRatingsStructureProvider extends ChangeNotifier {
     structuralRatingMap.clear();
 
     // Helper function to process single item (not list)
-    void processItem(String type, BrickPlaster item) {
+    void processItem(String type, BrickPlaster? item) {
+      if (item == null) return;
       final ratingItem = RatingItem(type: type);
       ratingItem.rating = item.rating;
       ratingItem.comment = item.conditionComment;
@@ -249,10 +249,8 @@ class AddRatingsStructureProvider extends ChangeNotifier {
       ratingItem.distressUnit = DistressMeasurementUnitX.fromApiValue(
         item.distressDimensions.unit,
       );
-      if (ratingItem.distressUnit == DistressMeasurementUnit.nos) {
-        ratingItem.numberController.text =
-            item.distressDimensions.number?.toString() ?? '';
-      }
+      ratingItem.numberController.text =
+          item.distressDimensions.number?.toString() ?? '';
 
       // Add as single-item list
       structuralRatingMap[type] = [ratingItem];
@@ -263,6 +261,9 @@ class AddRatingsStructureProvider extends ChangeNotifier {
     processItem('Columns', apiData.columns);
     processItem('Slab', apiData.slab);
     processItem('Foundation', apiData.foundation);
+    apiData.steelComponents.forEach(
+      (type, item) => processItem(type, item),
+    );
 
     notifyListeners();
   }
@@ -313,10 +314,8 @@ class AddRatingsStructureProvider extends ChangeNotifier {
       ratingItem.distressUnit = DistressMeasurementUnitX.fromApiValue(
         item.distressDimensions.unit,
       );
-      if (ratingItem.distressUnit == DistressMeasurementUnit.nos) {
-        ratingItem.numberController.text =
-            item.distressDimensions.number?.toString() ?? '';
-      }
+      ratingItem.numberController.text =
+          item.distressDimensions.number?.toString() ?? '';
 
       nonStructuralRatingMap[type] = [ratingItem];
     }
@@ -388,10 +387,8 @@ class AddRatingsStructureProvider extends ChangeNotifier {
           ratingItem.distressUnit = DistressMeasurementUnitX.fromApiValue(
             item.distressDimensions.unit,
           );
-          if (ratingItem.distressUnit == DistressMeasurementUnit.nos) {
-            ratingItem.numberController.text =
-                item.distressDimensions.number?.toString() ?? '';
-          }
+          ratingItem.numberController.text =
+              item.distressDimensions.number?.toString() ?? '';
 
           // ✅ FIXED: Handle photos from API and build full URLs
           print('   📸 Photo data for ${item.name}:');
@@ -436,6 +433,7 @@ class AddRatingsStructureProvider extends ChangeNotifier {
       processItemList('Columns', apiData.columns);
       processItemList('Slab', apiData.slabs);
       processItemList('Foundation', apiData.foundations);
+      apiData.steelComponents.forEach(processItemList);
 
       print('✅ populateStructuralRatingsFromFloor completed');
       print('   Total types loaded: ${structuralRatingMap.length}');
@@ -497,10 +495,8 @@ class AddRatingsStructureProvider extends ChangeNotifier {
           ratingItem.distressUnit = DistressMeasurementUnitX.fromApiValue(
             item.distressDimensions.unit,
           );
-          if (ratingItem.distressUnit == DistressMeasurementUnit.nos) {
-            ratingItem.numberController.text =
-                item.distressDimensions.number?.toString() ?? '';
-          }
+          ratingItem.numberController.text =
+              item.distressDimensions.number?.toString() ?? '';
 
           // ✅ FIXED: Handle photos from API and build full URLs
           print('   📸 Photo data for ${item.name}:');
@@ -583,6 +579,50 @@ class AddRatingsStructureProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Keeps server images while appending files selected during an edit.
+  List<String> _collectPhotoValues(RatingItem item, List<File> uploadFiles) {
+    final photos = <String>[...item.photoUrls];
+    if (photos.isEmpty && item.photoUrl != null && item.photoUrl!.isNotEmpty) {
+      photos.add(item.photoUrl!);
+    }
+    if (item.files != null && item.files!.isNotEmpty) {
+      uploadFiles.addAll(item.files!);
+      photos.addAll(item.files!.map((file) => path.basename(file.path)));
+    }
+    return photos;
+  }
+
+  Future<Response<dynamic>> _postMultipartWithTokenRefresh({
+    required String url,
+    required FormData formData,
+    required BuildContext context,
+  }) async {
+    final commonProvider = Provider.of<CommonProvider>(context, listen: false);
+    final dio = Dio();
+    // Multipart streams are consumed by the first request. Clone before
+    // sending so an expired-token retry has fresh file streams.
+    final retryData = formData.clone();
+
+    Future<Response<dynamic>> send(FormData data) => dio.post<dynamic>(
+      url,
+      data: data,
+      options: Options(
+        headers: {
+          'Authorization': 'Bearer ${commonProvider.accessToken}',
+        },
+      ),
+    );
+
+    try {
+      return await send(formData);
+    } on DioException catch (error) {
+      if (error.response?.statusCode != 401) rethrow;
+      final refreshed = await commonProvider.refreshAccessToken(context);
+      if (!refreshed || commonProvider.accessToken.trim().isEmpty) rethrow;
+      return send(retryData);
+    }
+  }
+
   // ==========================================
   // STRUCTURAL SUBMISSION METHODS
   // ==========================================
@@ -594,7 +634,6 @@ class AddRatingsStructureProvider extends ChangeNotifier {
     required String structureSubType,
     bool testingRequired = false,
   }) async {
-    final dio = Dio();
     final List<Map<String, dynamic>> allComponents = [];
     final List<File> allImageFiles = [];
     final List<File> allDocFiles = [];
@@ -617,19 +656,7 @@ class AddRatingsStructureProvider extends ChangeNotifier {
             "distress_types": item.distressTypes,
           };
 
-          // Images
-          if (item.files != null && item.files!.isNotEmpty) {
-            allImageFiles.addAll(item.files!);
-            component["photo"] = item.files!
-                .map((f) => path.basename(f.path))
-                .toList();
-          } else if (item.photoUrls.isNotEmpty) {
-            component["photo"] = item.photoUrls;
-          } else if (item.photoUrl != null && item.photoUrl!.isNotEmpty) {
-            component["photo"] = [item.photoUrl!];
-          } else {
-            component["photo"] = [];
-          }
+          component["photo"] = _collectPhotoValues(item, allImageFiles);
 
           // Documents (pdf/xls/xlsx)
           final pdfFiles = <String>[];
@@ -649,11 +676,6 @@ class AddRatingsStructureProvider extends ChangeNotifier {
       };
       allComponents.add(componentGroup);
     });
-
-    final token = Provider.of<CommonProvider>(
-      context,
-      listen: false,
-    ).accessToken;
 
     // Build multipart FormData
     final formData = FormData();
@@ -694,10 +716,10 @@ class AddRatingsStructureProvider extends ChangeNotifier {
     );
 
     try {
-      final response = await dio.post(
-        "$baseUrl/api/structures/$structureId/flats/$flatId/structural/bulk",
-        data: formData,
-        options: Options(headers: {"Authorization": "Bearer $token"}),
+      final response = await _postMultipartWithTokenRefresh(
+        url: "$baseUrl/api/structures/$structureId/flats/$flatId/structural/bulk",
+        formData: formData,
+        context: context,
       );
 
       print("✅ [STRUCTURAL FLAT] Status Code: ${response.statusCode}");
@@ -733,15 +755,9 @@ class AddRatingsStructureProvider extends ChangeNotifier {
     required String structureSubType,
     bool testingRequired = false,
   }) async {
-    final dio = Dio();
     final List<Map<String, dynamic>> allComponents = [];
     final List<File> allFiles = []; // images
     final List<File> allDocFiles = []; // docs
-    final token = Provider.of<CommonProvider>(
-      context,
-      listen: false,
-    ).accessToken;
-
     // Build the structures JSON array and collect all files
     structuralRatingMap.forEach((type, items) {
       final componentGroup = {
@@ -761,19 +777,7 @@ class AddRatingsStructureProvider extends ChangeNotifier {
             "distress_types": item.distressTypes,
           };
 
-          // New local files take priority
-          if (item.files != null && item.files!.isNotEmpty) {
-            allFiles.addAll(item.files!);
-            component["photo"] = item.files!
-                .map((f) => path.basename(f.path))
-                .toList();
-          } else if (item.photoUrls.isNotEmpty) {
-            component["photo"] = item.photoUrls;
-          } else if (item.photoUrl != null && item.photoUrl!.isNotEmpty) {
-            component["photo"] = [item.photoUrl!];
-          } else {
-            component["photo"] = [];
-          }
+          component["photo"] = _collectPhotoValues(item, allFiles);
 
           // Documents
           final pdfFiles = <String>[];
@@ -837,15 +841,10 @@ class AddRatingsStructureProvider extends ChangeNotifier {
     );
 
     try {
-      final response = await dio.post(
-        "$baseUrl/api/structures/$structureId/floors/$floorId/structural/bulk",
-        data: formData,
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            // Content-Type is set automatically by Dio for FormData
-          },
-        ),
+      final response = await _postMultipartWithTokenRefresh(
+        url: "$baseUrl/api/structures/$structureId/floors/$floorId/structural/bulk",
+        formData: formData,
+        context: context,
       );
 
       print("✅ [STRUCTURAL FLOOR] Status Code: ${response.statusCode}");
@@ -1010,15 +1009,9 @@ class AddRatingsStructureProvider extends ChangeNotifier {
     BuildContext context, {
     required String structureSubType,
   }) async {
-    final dio = Dio();
     final List<Map<String, dynamic>> allComponents = [];
     final List<File> allImageFiles = [];
     final List<File> allDocFiles = [];
-    final token = Provider.of<CommonProvider>(
-      context,
-      listen: false,
-    ).accessToken;
-
     nonStructuralRatingMap.forEach((type, items) {
       final componentGroup = {
         "component_type": _mapNonStructuralComponentType(
@@ -1039,19 +1032,7 @@ class AddRatingsStructureProvider extends ChangeNotifier {
                 item.repairMethodology ?? item.repairMethodologyController.text,
           };
 
-          // Images
-          if (item.files != null && item.files!.isNotEmpty) {
-            allImageFiles.addAll(item.files!);
-            component["photo"] = item.files!
-                .map((f) => path.basename(f.path))
-                .toList();
-          } else if (item.photoUrls.isNotEmpty) {
-            component["photo"] = item.photoUrls;
-          } else if (item.photoUrl != null && item.photoUrl!.isNotEmpty) {
-            component["photo"] = [item.photoUrl!];
-          } else {
-            component["photo"] = [];
-          }
+          component["photo"] = _collectPhotoValues(item, allImageFiles);
 
           // Documents
           final pdfFiles = <String>[];
@@ -1109,10 +1090,10 @@ class AddRatingsStructureProvider extends ChangeNotifier {
     );
 
     try {
-      final response = await dio.post(
-        "$baseUrl/api/structures/$structureId/flats/$flatId/non-structural/bulk",
-        data: formData,
-        options: Options(headers: {"Authorization": "Bearer $token"}),
+      final response = await _postMultipartWithTokenRefresh(
+        url: "$baseUrl/api/structures/$structureId/flats/$flatId/non-structural/bulk",
+        formData: formData,
+        context: context,
       );
 
       print("✅ [NON-STRUCTURAL FLAT] Status Code: ${response.statusCode}");
@@ -1151,15 +1132,9 @@ class AddRatingsStructureProvider extends ChangeNotifier {
     BuildContext context, {
     required String structureSubType,
   }) async {
-    final dio = Dio();
     final List<Map<String, dynamic>> allComponents = [];
     final List<File> allFiles = [];
     final List<File> allDocFiles = [];
-    final token = Provider.of<CommonProvider>(
-      context,
-      listen: false,
-    ).accessToken;
-
     nonStructuralRatingMap.forEach((type, items) {
       final componentGroup = {
         "component_type": _mapNonStructuralComponentType(
@@ -1181,19 +1156,7 @@ class AddRatingsStructureProvider extends ChangeNotifier {
                 item.repairMethodology ?? item.repairMethodologyController.text,
           };
 
-          // Images
-          if (item.files != null && item.files!.isNotEmpty) {
-            allFiles.addAll(item.files!);
-            component["photo"] = item.files!
-                .map((f) => path.basename(f.path))
-                .toList();
-          } else if (item.photoUrls.isNotEmpty) {
-            component["photo"] = item.photoUrls;
-          } else if (item.photoUrl != null && item.photoUrl!.isNotEmpty) {
-            component["photo"] = [item.photoUrl!];
-          } else {
-            component["photo"] = [];
-          }
+          component["photo"] = _collectPhotoValues(item, allFiles);
 
           // Documents
           final pdfFiles = <String>[];
@@ -1251,10 +1214,10 @@ class AddRatingsStructureProvider extends ChangeNotifier {
     );
 
     try {
-      final response = await dio.post(
-        "$baseUrl/api/structures/$structureId/floors/$floorId/non-structural/bulk",
-        data: formData,
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      final response = await _postMultipartWithTokenRefresh(
+        url: "$baseUrl/api/structures/$structureId/floors/$floorId/non-structural/bulk",
+        formData: formData,
+        context: context,
       );
 
       print("✅ [NON-STRUCTURAL FLOOR] Status Code: ${response.statusCode}");

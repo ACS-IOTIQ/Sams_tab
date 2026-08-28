@@ -22,7 +22,9 @@ class GetAdminstrativeDetailsByStrId {
     factory GetAdminstrativeDetailsByStrId.fromJson(Map<String, dynamic> json) => GetAdminstrativeDetailsByStrId(
         success: json["success"],
         message: json["message"],
-        data: json["data"] == null ? null : Data.fromJson(json["data"]),
+        data: json["data"] is Map
+            ? Data.fromJson(Map<String, dynamic>.from(json["data"]))
+            : Data.fromJson(json),
     );
 
     Map<String, dynamic> toJson() => {
@@ -43,12 +45,21 @@ class Data {
         this.administration,
     });
 
-    factory Data.fromJson(Map<String, dynamic> json) => Data(
-        structureId: json["structure_id"],
-        uid: json["uid"],
-        // ✅ Fixed: Changed from "administration" to "administrative"
-        administration: json["administrative"] == null ? null : Administration.fromJson(json["administrative"]),
-    );
+    factory Data.fromJson(Map<String, dynamic> json) {
+        final rawAdministration =
+            json["administrative"] ?? json["administration"];
+        final administrationJson = rawAdministration is Map
+            ? Map<String, dynamic>.from(rawAdministration)
+            : (json.containsKey("client_name") ? json : null);
+
+        return Data(
+            structureId: json["structure_id"] ?? json["structureId"],
+            uid: json["uid"],
+            administration: administrationJson == null
+                ? null
+                : Administration.fromJson(administrationJson),
+        );
+    }
 
     Map<String, dynamic> toJson() => {
         "structure_id": structureId,
@@ -77,8 +88,8 @@ class Administration {
         clientName: json["client_name"],
         custodian: json["custodian"],
         engineerDesignation: json["engineer_designation"],
-        contactDetails: json["contact_details"],
-        emailId: json["email_id"],
+        contactDetails: json["contact_details"] ?? json["contact"],
+        emailId: json["email_id"] ?? json["email"],
     );
 
     Map<String, dynamic> toJson() => {

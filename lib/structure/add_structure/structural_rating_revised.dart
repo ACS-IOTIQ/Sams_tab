@@ -86,7 +86,7 @@ class _StructuralRatingState extends State<StructuralRating> {
         'Foundation',
         'Columns',
         'Beams',
-        'Roof_Truss',
+        'Roof Truss',
         'Connections',
         'Bracings',
         'Purlins',
@@ -213,11 +213,11 @@ class _StructuralRatingState extends State<StructuralRating> {
 
   Future<void> _loadExistingRatings() async {
     if (!mounted) return;
-    // ✅ Always clear stale data from previous floor before loading
+    // Clear stale structural data without erasing the sibling tab's ratings.
     Provider.of<AddRatingsStructureProvider>(
       context,
       listen: false,
-    ).clearForNewFloor();
+    ).clearStructuralRatings();
     setState(() {
       isLoading = true;
       errorMessage = null;
@@ -258,6 +258,9 @@ class _StructuralRatingState extends State<StructuralRating> {
         print('❌ API Error: $apiError');
         rethrow;
       }
+
+      // Ignore an old response after the user selects another flat or floor.
+      if (!mounted) return;
 
       if (ratingsData != null && ratingsData.data != null) {
         try {
@@ -692,19 +695,18 @@ class _StructuralRatingState extends State<StructuralRating> {
                 type: type,
                 item: item,
               ),
-              if (item.distressUnit == DistressMeasurementUnit.nos)
-                numberField(
-                  label: 'No.',
-                  controller: item.numberController,
-                  keyboardtype: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  validator: (val, String? f) {
-                    if (val == null || val.trim().isEmpty) {
-                      return 'Please enter No.';
-                    }
-                    return null;
-                  },
-                ),
+              numberField(
+                label: 'No.',
+                controller: item.numberController,
+                keyboardtype: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                validator: (val, String? f) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter No.';
+                  }
+                  return null;
+                },
+              ),
               if (item.distressUnit != DistressMeasurementUnit.nos) ...[
                 numberField(
                   label: "Length",
@@ -1026,13 +1028,21 @@ class _StructuralRatingState extends State<StructuralRating> {
                         size: 20,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        'Photos From Server (${item.photoUrls.length})',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.green.shade900,
+                      Expanded(
+                        child: Text(
+                          'Existing Photos (${item.photoUrls.length})',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.green.shade900,
+                          ),
                         ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () =>
+                            _showImageSourceDialog(provider, type, index),
+                        icon: const Icon(Icons.add_a_photo_outlined, size: 17),
+                        label: const Text('Add another'),
                       ),
                     ],
                   ),
@@ -1574,6 +1584,7 @@ class _StructuralRatingState extends State<StructuralRating> {
       label: "Units",
       child: RadioGroupDropdown<DistressMeasurementUnit>(
         options: DistressMeasurementUnit.values
+            .where((unit) => unit != DistressMeasurementUnit.nos)
             .map((unit) => RadioOption(unit, unit.label))
             .toList(),
         value: item.distressUnit,

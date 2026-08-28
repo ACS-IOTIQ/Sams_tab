@@ -1,8 +1,30 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sams_engineering_console/models/get_administrativeby_strid_model.dart';
 import 'package:sams_engineering_console/provider/add_structure_ratings_provider.dart';
 import 'package:sams_engineering_console/structure/add_structure/structural_nonstructural_revised.dart';
 
 void main() {
+  group('administrative details response', () {
+    test('accepts administration and administrative response keys', () {
+      for (final key in ['administration', 'administrative']) {
+        final response = GetAdminstrativeDetailsByStrId.fromJson({
+          'success': true,
+          'data': {
+            key: {
+              'client_name': 'Client',
+              'contact': '9999999999',
+              'email': 'client@example.com',
+            },
+          },
+        });
+
+        expect(response.data?.administration?.clientName, 'Client');
+        expect(response.data?.administration?.contactDetails, '9999999999');
+        expect(response.data?.administration?.emailId, 'client@example.com');
+      }
+    });
+  });
+
   group('DistressMeasurementUnit', () {
     test('supports RM as a distinct unit', () {
       expect(DistressMeasurementUnit.rm.apiValue, 'RM');
@@ -57,9 +79,17 @@ void main() {
   });
 
   group('validateRatingsForSubmission', () {
-    test('allows optional dimensions and requires a No.s quantity', () {
+    test('requires a measurement unit and a number', () {
       final item = RatingItem(type: 'Beams')..rating = 5;
 
+      expect(
+        validateRatingsForSubmission({
+          'Beams': [item],
+        }),
+        contains('select a measurement unit'),
+      );
+
+      item.distressUnit = DistressMeasurementUnit.rm;
       expect(
         validateRatingsForSubmission({
           'Beams': [item],
@@ -74,6 +104,23 @@ void main() {
         }),
         isNull,
       );
+    });
+  });
+
+  group('rating map clearing', () {
+    test('clearing one rating type preserves the other type', () {
+      final provider = AddRatingsStructureProvider();
+      provider.structuralRatingMap['Beams'] = [RatingItem(type: 'Beams')];
+      provider.nonStructuralRatingMap['Walls'] = [RatingItem(type: 'Walls')];
+
+      provider.clearNonStructuralRatings();
+      expect(provider.structuralRatingMap.keys, contains('Beams'));
+      expect(provider.nonStructuralRatingMap, isEmpty);
+
+      provider.nonStructuralRatingMap['Walls'] = [RatingItem(type: 'Walls')];
+      provider.clearStructuralRatings();
+      expect(provider.structuralRatingMap, isEmpty);
+      expect(provider.nonStructuralRatingMap.keys, contains('Walls'));
     });
   });
 }

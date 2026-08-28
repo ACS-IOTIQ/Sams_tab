@@ -39,7 +39,6 @@ class _AdministrativeGeometricdetailsState
 
   late GetstructureProvider getstructureProvider;
 
-  bool _isDataLoaded = false;
   bool hasExistingAdminData = false;
 
   @override
@@ -55,17 +54,33 @@ class _AdministrativeGeometricdetailsState
   }
 
   /// 🔁 Fetch API + reset state
-  void _fetchData() {
-    _isDataLoaded = false;
+  Future<void> _fetchData() async {
     hasExistingAdminData = false;
 
     clearControllers();
     getstructureProvider.clearAdministrativeDetails();
 
-    getstructureProvider.getAdministrativeDetailsByStructureId(
+    await getstructureProvider.getAdministrativeDetailsByStructureId(
       structureId: widget.structureId,
       context: context,
     );
+
+    if (!mounted) return;
+    final adminData = getstructureProvider
+        .getAdminstrativeDetailsByStrIdModel
+        ?.data
+        ?.administration;
+    setState(() {
+      if (adminData != null) {
+        clientNameController.text = adminData.clientName ?? '';
+        custodianController.text = adminData.custodian ?? '';
+        engineerDesignationController.text =
+            adminData.engineerDesignation ?? '';
+        contactController.text = adminData.contactDetails ?? '';
+        emailController.text = adminData.emailId ?? '';
+        hasExistingAdminData = true;
+      }
+    });
   }
 
   /// 🧹 Clear all fields
@@ -128,23 +143,7 @@ class _AdministrativeGeometricdetailsState
   @override
   Widget build(BuildContext context) {
     return Consumer<GetstructureProvider>(
-      builder: (context, provider, child) {
-        final adminData =
-            provider.getAdminstrativeDetailsByStrIdModel?.data?.administration;
-
-        /// ✅ Populate data ONLY ONCE
-        if (!_isDataLoaded && adminData != null) {
-          clientNameController.text = adminData.clientName ?? '';
-          custodianController.text = adminData.custodian ?? '';
-          engineerDesignationController.text =
-              adminData.engineerDesignation ?? '';
-          contactController.text = adminData.contactDetails ?? '';
-          emailController.text = adminData.emailId ?? '';
-
-          hasExistingAdminData = true;
-          _isDataLoaded = true;
-        }
-
+      builder: (context, _, child) {
         void goToGeometric() {
           Navigator.push(
             context,

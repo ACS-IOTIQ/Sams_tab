@@ -449,6 +449,7 @@ class StructuralRatingFloor {
   List<BrickPlasterFloor> columns; // Changed to List
   List<BrickPlasterFloor> slabs; // Changed to List (note: plural)
   List<BrickPlasterFloor> foundations; // Changed to List (note: plural)
+  Map<String, List<BrickPlasterFloor>> steelComponents;
   double? overallAverage;
   String? healthStatus;
   DateTime? assessmentDate;
@@ -460,6 +461,7 @@ class StructuralRatingFloor {
     required this.columns,
     required this.slabs,
     required this.foundations,
+    required this.steelComponents,
     this.overallAverage,
     this.healthStatus,
     this.assessmentDate,
@@ -489,6 +491,7 @@ class StructuralRatingFloor {
                 json["foundations"].map((x) => BrickPlasterFloor.fromJson(x)),
               )
             : [],
+        steelComponents: _parseSteelComponents(json),
         overallAverage: json["overall_average"]?.toDouble(),
         healthStatus: json["health_status"],
         assessmentDate: json["assessment_date"] != null
@@ -505,12 +508,59 @@ class StructuralRatingFloor {
     "columns": List<dynamic>.from(columns.map((x) => x.toJson())),
     "slabs": List<dynamic>.from(slabs.map((x) => x.toJson())),
     "foundations": List<dynamic>.from(foundations.map((x) => x.toJson())),
+    ...steelComponents.map(
+      (key, value) => MapEntry(
+        key.toLowerCase().replaceAll(' ', '_'),
+        List<dynamic>.from(value.map((x) => x.toJson())),
+      ),
+    ),
     "overall_average": overallAverage,
     "health_status": healthStatus,
     "assessment_date": assessmentDate?.toIso8601String(),
     "inspector_notes": inspectorNotes,
     "averages": averages?.toJson(),
   };
+
+  static Map<String, List<BrickPlasterFloor>> _parseSteelComponents(
+    Map<String, dynamic> json,
+  ) {
+    const aliases = {
+      'roof_truss': 'Roof Truss',
+      'roof_trusses': 'Roof Truss',
+      'roofTruss': 'Roof Truss',
+      'roofTrusses': 'Roof Truss',
+      'connections': 'Connections',
+      'connection': 'Connections',
+      'bracings': 'Bracings',
+      'bracing': 'Bracings',
+      'purlins': 'Purlins',
+      'purlin': 'Purlins',
+      'channels': 'Channels',
+      'channel': 'Channels',
+      'steel_flooring': 'Steel Flooring',
+      'steelFlooring': 'Steel Flooring',
+    };
+    final result = <String, List<BrickPlasterFloor>>{};
+    aliases.forEach((apiKey, displayName) {
+      final value = json[apiKey];
+      if (value is List) {
+        result[displayName] = value
+            .whereType<Map>()
+            .map(
+              (item) => BrickPlasterFloor.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList();
+      } else if (value is Map) {
+        result[displayName] = [
+          BrickPlasterFloor.fromJson(Map<String, dynamic>.from(value)),
+        ];
+      }
+    });
+    result.removeWhere((_, items) => items.isEmpty);
+    return result;
+  }
 }
 
 // Helper class for averages

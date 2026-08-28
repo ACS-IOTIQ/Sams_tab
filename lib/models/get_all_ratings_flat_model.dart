@@ -347,10 +347,11 @@ class DoorsWindows {
 }
 
 class StructuralRating {
-  BrickPlaster beams;
-  BrickPlaster columns;
-  BrickPlaster slab;
-  BrickPlaster foundation;
+  BrickPlaster? beams;
+  BrickPlaster? columns;
+  BrickPlaster? slab;
+  BrickPlaster? foundation;
+  Map<String, BrickPlaster> steelComponents;
   double overallAverage;
   String healthStatus;
   DateTime assessmentDate;
@@ -360,6 +361,7 @@ class StructuralRating {
     required this.columns,
     required this.slab,
     required this.foundation,
+    required this.steelComponents,
     required this.overallAverage,
     required this.healthStatus,
     required this.assessmentDate,
@@ -367,24 +369,74 @@ class StructuralRating {
 
   factory StructuralRating.fromJson(Map<String, dynamic> json) =>
       StructuralRating(
-        beams: BrickPlaster.fromJson(json["beams"]),
-        columns: BrickPlaster.fromJson(json["columns"]),
-        slab: BrickPlaster.fromJson(json["slab"]),
-        foundation: BrickPlaster.fromJson(json["foundation"]),
+        beams: json["beams"] is Map
+            ? BrickPlaster.fromJson(Map<String, dynamic>.from(json["beams"]))
+            : null,
+        columns: json["columns"] is Map
+            ? BrickPlaster.fromJson(Map<String, dynamic>.from(json["columns"]))
+            : null,
+        slab: json["slab"] is Map
+            ? BrickPlaster.fromJson(Map<String, dynamic>.from(json["slab"]))
+            : null,
+        foundation: json["foundation"] is Map
+            ? BrickPlaster.fromJson(
+                Map<String, dynamic>.from(json["foundation"]),
+              )
+            : null,
+        steelComponents: _parseSteelComponents(json),
         overallAverage: json["overall_average"]?.toDouble(),
         healthStatus: json["health_status"],
         assessmentDate: DateTime.parse(json["assessment_date"]),
       );
 
   Map<String, dynamic> toJson() => {
-    "beams": beams.toJson(),
-    "columns": columns.toJson(),
-    "slab": slab.toJson(),
-    "foundation": foundation.toJson(),
+    if (beams != null) "beams": beams!.toJson(),
+    if (columns != null) "columns": columns!.toJson(),
+    if (slab != null) "slab": slab!.toJson(),
+    if (foundation != null) "foundation": foundation!.toJson(),
+    ...steelComponents.map(
+      (key, value) => MapEntry(
+        key.toLowerCase().replaceAll(' ', '_'),
+        value.toJson(),
+      ),
+    ),
     "overall_average": overallAverage,
     "health_status": healthStatus,
     "assessment_date": assessmentDate.toIso8601String(),
   };
+
+  static Map<String, BrickPlaster> _parseSteelComponents(
+    Map<String, dynamic> json,
+  ) {
+    const aliases = {
+      'roof_truss': 'Roof Truss',
+      'roof_trusses': 'Roof Truss',
+      'roofTruss': 'Roof Truss',
+      'roofTrusses': 'Roof Truss',
+      'connections': 'Connections',
+      'connection': 'Connections',
+      'bracings': 'Bracings',
+      'bracing': 'Bracings',
+      'purlins': 'Purlins',
+      'purlin': 'Purlins',
+      'channels': 'Channels',
+      'channel': 'Channels',
+      'steel_flooring': 'Steel Flooring',
+      'steelFlooring': 'Steel Flooring',
+    };
+    final result = <String, BrickPlaster>{};
+    aliases.forEach((apiKey, displayName) {
+      final value = json[apiKey];
+      if (value is Map<String, dynamic>) {
+        result[displayName] = BrickPlaster.fromJson(value);
+      } else if (value is List && value.isNotEmpty && value.first is Map) {
+        result[displayName] = BrickPlaster.fromJson(
+          Map<String, dynamic>.from(value.first as Map),
+        );
+      }
+    });
+    return result;
+  }
 }
 
 class Statistics {
