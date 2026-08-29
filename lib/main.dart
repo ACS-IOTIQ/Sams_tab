@@ -107,9 +107,6 @@ class _MyAppState extends State<MyApp> {
                     background: const Color(0xffF7F8FA),
                     surface: Colors.white,
                   ),
-                  textTheme: Typography.englishLike2018.apply(
-                    fontSizeFactor: 1.sp,
-                  ),
                 ),
                 home: child,
               ),

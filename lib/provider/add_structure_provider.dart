@@ -58,7 +58,12 @@ class AddstructureProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> submitStructure(BuildContext context, String structureId) async {
+  /// Submits the structure for testing.
+  ///
+  /// Returns `true` only when the backend accepted the submission.  Failures
+  /// are surfaced to the user instead of being swallowed, otherwise the submit
+  /// button just spins and the inspection silently never leaves the device.
+  Future<bool> submitStructure(BuildContext context, String structureId) async {
     final url = '$baseUrl/api/structures/$structureId/submit-for-testing';
 
     final token = Provider.of<CommonProvider>(
@@ -80,10 +85,14 @@ class AddstructureProvider extends ChangeNotifier {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        final id = data['data']['structure_id'];
+        final id = data['data']?['structure_id'] ?? structureId;
         structureIdInit = id; // âœ… Save the ID internally
 
-        if (!context.mounted) return;
+        CustomToast.showSuccessToast(
+          msg: "Inspection submitted for testing successfully.",
+        );
+
+        if (!context.mounted) return true;
 
         // Return to the app shell instead of rendering StructureList as a
         // standalone route.  HomeScreen loads a persisted role when needed;
@@ -94,13 +103,38 @@ class AddstructureProvider extends ChangeNotifier {
         );
         notifyListeners();
         print('Initialization successful: Structure ID = $id');
-      } else {
-        print('Failed: ${response.statusCode}');
-        print('Response: ${response.body}');
+        return true;
       }
+
+      print('Failed: ${response.statusCode}');
+      print('Response: ${response.body}');
+      CustomToast.showErrorToast(
+        msg: _submitErrorMessage(response.statusCode, response.body),
+      );
+      return false;
     } catch (e) {
       print('Error: $e');
+      CustomToast.showErrorToast(msg: "Could not submit inspection: $e");
+      return false;
     }
+  }
+
+  /// Pulls the backend's own explanation out of an error payload so the user
+  /// sees why the submission was rejected (wrong role, wrong workflow status,
+  /// validation failure) rather than a generic message.
+  String _submitErrorMessage(int statusCode, String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) {
+        final message = decoded['message'];
+        if (message is String && message.trim().isNotEmpty) {
+          return message;
+        }
+      }
+    } catch (_) {
+      // Non-JSON error body - fall through to the generic message.
+    }
+    return 'Could not submit inspection (error $statusCode).';
   }
 
   Future<void> submitAdministrativeData(

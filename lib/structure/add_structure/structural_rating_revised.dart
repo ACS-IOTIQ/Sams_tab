@@ -700,12 +700,7 @@ class _StructuralRatingState extends State<StructuralRating> {
                 controller: item.numberController,
                 keyboardtype: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                validator: (val, String? f) {
-                  if (val == null || val.trim().isEmpty) {
-                    return 'Please enter No.';
-                  }
-                  return null;
-                },
+                validator: (val, String? f) => null,
               ),
               if (item.distressUnit != DistressMeasurementUnit.nos) ...[
                 numberField(
@@ -1052,11 +1047,13 @@ class _StructuralRatingState extends State<StructuralRating> {
                     runSpacing: 8,
                     children: item.photoUrls
                         .map(
-                          (url) => GestureDetector(
-                            onTap: () => _showExpandedImage(networkUrl: url),
-                            child: Stack(
-                              children: [
-                                ClipRRect(
+                          (url) => Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              GestureDetector(
+                                onTap: () =>
+                                    _showExpandedImage(networkUrl: url),
+                                child: ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
                                   child: Image.network(
                                     url,
@@ -1086,24 +1083,47 @@ class _StructuralRatingState extends State<StructuralRating> {
                                     ),
                                   ),
                                 ),
-                                Positioned(
-                                  bottom: 3,
-                                  right: 3,
+                              ),
+                              Positioned(
+                                bottom: 3,
+                                right: 3,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(
+                                    Icons.zoom_in,
+                                    color: Colors.white,
+                                    size: 12,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: -4,
+                                right: -4,
+                                child: GestureDetector(
+                                  onTap: () => _confirmRemoveExistingPhoto(
+                                    provider,
+                                    item,
+                                    url,
+                                  ),
                                   child: Container(
-                                    padding: const EdgeInsets.all(2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black54,
-                                      borderRadius: BorderRadius.circular(4),
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
                                     ),
                                     child: const Icon(
-                                      Icons.zoom_in,
+                                      Icons.close,
                                       color: Colors.white,
                                       size: 12,
                                     ),
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         )
                         .toList(),
@@ -1240,6 +1260,43 @@ class _StructuralRatingState extends State<StructuralRating> {
   }
 
   // ── Image source choice dialog ──────────────────────────────────────────
+  /// Deletes a photo that is already stored on the server.
+  ///
+  /// The removal only reaches the backend when these ratings are submitted,
+  /// so confirm before discarding work the inspector already uploaded.
+  Future<void> _confirmRemoveExistingPhoto(
+    AddRatingsStructureProvider provider,
+    RatingItem item,
+    String url,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove photo?'),
+        content: const Text(
+          'This photo is removed from the inspection when you submit these '
+          'ratings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    provider.removeExistingPhoto(item, url);
+    setState(() {});
+  }
+
   void _showImageSourceDialog(
     AddRatingsStructureProvider provider,
     String type,

@@ -1224,6 +1224,26 @@ class _StructuralNonstructuralratingState
     );
   }
 
+  /// Human-readable name for a pending submission, so validation errors point
+  /// at the flat/floor that still needs attention instead of a raw id.
+  String _submissionLabel(PendingRatingSubmission submission) {
+    if (submission.isFloor) {
+      final entry = widget.floorInfoByNumber?.entries.firstWhere(
+        (e) => e.value['floorId'] == submission.entityId,
+        orElse: () => const MapEntry('', <String, String>{}),
+      );
+      final number = entry?.key ?? '';
+      return number.isEmpty ? 'Floor' : 'Floor $number';
+    }
+
+    final entry = widget.flatInfoByNumber?.entries.firstWhere(
+      (e) => e.value['flatId'] == submission.entityId,
+      orElse: () => const MapEntry('', <String, String>{}),
+    );
+    final number = entry?.key ?? '';
+    return number.isEmpty ? 'Flat' : 'Flat $number';
+  }
+
   String? get _currentSelectionKey {
     if (currentFlatId != null) return 'flat_$currentFlatId';
     if (currentFloorId != null) return 'floor_$currentFloorId';
@@ -1304,7 +1324,10 @@ class _StructuralNonstructuralratingState
       final validationError = structuralError ?? nonStructuralError;
       if (validationError != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(validationError)),
+          SnackBar(
+            content: Text('${_submissionLabel(submission)}: $validationError'),
+            duration: const Duration(seconds: 5),
+          ),
         );
         return false;
       }
@@ -1364,7 +1387,12 @@ class _StructuralNonstructuralratingState
       }
 
       return true;
-    } catch (_) {
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save ratings: $e')),
+        );
+      }
       return false;
     } finally {
       _replaceProviderRatings(

@@ -11,18 +11,20 @@ import 'package:sams_engineering_console/provider/common_provider.dart';
 import 'package:sams_engineering_console/utils/custom_toast.dart';
 
 /// Returns the first validation error for a rating collection, if any.
-/// Dimensions are optional, but every distress entry must have a count.
+/// Only the rating itself is mandatory; the distress measurement unit, the
+/// No. count and the dimensions are all optional.
 String? validateRatingsForSubmission(Map<String, List<RatingItem>> ratings) {
   for (final entry in ratings.entries) {
-    for (final item in entry.value) {
+    for (var index = 0; index < entry.value.length; index++) {
+      final item = entry.value[index];
+      // Name the offending component so the user can find it; a bare "all
+      // items" message is unactionable once several flats have been rated.
+      final label = entry.value.length > 1
+          ? '${entry.key} (item ${index + 1})'
+          : entry.key;
+
       if (item.rating == null || item.rating! < 1 || item.rating! > 5) {
-        return 'Please enter valid ratings (1-5) for all items';
-      }
-      if (item.distressUnit == DistressMeasurementUnit.nos) {
-        return 'Please select a measurement unit for all items';
-      }
-      if (item.numberController.text.trim().isEmpty) {
-        return 'Please enter No. for all items';
+        return 'Please enter valid ratings (1-5) for $label';
       }
     }
   }
@@ -78,6 +80,19 @@ class AddRatingsStructureProvider extends ChangeNotifier {
           "unit": unit.apiValue,
         };
     }
+  }
+
+  /// Drops an already-uploaded photo from a rating item.
+  ///
+  /// The removal is committed when the rating is submitted: the payload sends
+  /// the full photo list, and the backend replaces the stored one.  [photoUrl]
+  /// is kept in step with the list because [_collectPhotoValues] falls back to
+  /// it when the list is empty, which would otherwise resurrect the last photo
+  /// the user just deleted.
+  void removeExistingPhoto(RatingItem item, String url) {
+    item.photoUrls.remove(url);
+    item.photoUrl = item.photoUrls.isNotEmpty ? item.photoUrls.first : null;
+    notifyListeners();
   }
 
   void updateDistressUnit(

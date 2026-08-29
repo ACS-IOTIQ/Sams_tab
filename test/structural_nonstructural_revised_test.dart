@@ -79,31 +79,57 @@ void main() {
   });
 
   group('validateRatingsForSubmission', () {
-    test('requires a measurement unit and a number', () {
-      final item = RatingItem(type: 'Beams')..rating = 5;
+    test('requires a rating but not a unit or a No. count', () {
+      final item = RatingItem(type: 'Beams');
 
       expect(
         validateRatingsForSubmission({
           'Beams': [item],
         }),
-        contains('select a measurement unit'),
+        contains('valid ratings (1-5)'),
       );
 
-      item.distressUnit = DistressMeasurementUnit.rm;
-      expect(
-        validateRatingsForSubmission({
-          'Beams': [item],
-        }),
-        contains('Please enter No.'),
-      );
-
-      item.numberController.text = '0';
+      // A rating on its own is enough: the unit is still unset and the No.
+      // field is still empty.
+      item.rating = 5;
+      expect(item.distressUnit, DistressMeasurementUnit.nos);
+      expect(item.numberController.text, isEmpty);
       expect(
         validateRatingsForSubmission({
           'Beams': [item],
         }),
         isNull,
       );
+    });
+
+    test('rejects out-of-range ratings and names the component', () {
+      final item = RatingItem(type: 'Beams')..rating = 9;
+
+      expect(
+        validateRatingsForSubmission({
+          'Beams': [item],
+        }),
+        contains('Beams'),
+      );
+    });
+  });
+
+  group('removeExistingPhoto', () {
+    test('drops the url and keeps the legacy photoUrl in step', () {
+      final provider = AddRatingsStructureProvider();
+      final item = RatingItem(type: 'Beams')
+        ..photoUrls = ['https://host/a.jpg', 'https://host/b.jpg']
+        ..photoUrl = 'https://host/a.jpg';
+
+      provider.removeExistingPhoto(item, 'https://host/a.jpg');
+      expect(item.photoUrls, ['https://host/b.jpg']);
+      expect(item.photoUrl, 'https://host/b.jpg');
+
+      // Removing the last photo must clear photoUrl too, otherwise the
+      // submission payload falls back to it and restores the deleted photo.
+      provider.removeExistingPhoto(item, 'https://host/b.jpg');
+      expect(item.photoUrls, isEmpty);
+      expect(item.photoUrl, isNull);
     });
   });
 
