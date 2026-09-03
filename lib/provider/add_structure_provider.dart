@@ -659,10 +659,15 @@ class AddstructureProvider extends ChangeNotifier {
     required double totalAreaSqMts,
     required String floorLabelName,
     required int numberOfFlats,
+    required BuildContext context,
   }) async {
     final url = Uri.parse(
       '$baseUrl/api/structures/$structureId/floors/$floorId',
     );
+       final token = Provider.of<CommonProvider>(
+      context,
+      listen: false,
+    ).accessToken;
 
     final Map<String, dynamic> requestBody = {
       "floor_number": floorNumber,
@@ -679,6 +684,8 @@ class AddstructureProvider extends ChangeNotifier {
         url,
         headers: {
           "Content-Type": "application/json",
+        'Authorization': 'Bearer $token',
+
           // Add authorization token if needed:
           // "Authorization": "Bearer YOUR_TOKEN"
         },

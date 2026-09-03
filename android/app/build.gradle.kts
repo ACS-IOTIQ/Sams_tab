@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -8,18 +10,11 @@ plugins {
 android {
     namespace = "com.example.sams_engineering_console"
     compileSdk = 36
-    ndkVersion = "27.0.12077973"
-
-   
-
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
     defaultConfig {
@@ -42,8 +37,14 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget = JvmTarget.JVM_11
+    }
+}
+
 dependencies {
-        implementation("com.google.android.gms:play-services-maps:18.2.0")
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
 }
 
 flutter {

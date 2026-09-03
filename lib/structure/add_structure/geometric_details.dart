@@ -1099,50 +1099,56 @@ class _GeometricdetailsState extends State<Geometricdetails> {
         // Check if floor exists
         String floorId = existingFloorIds[floorNumber] ?? '';
         bool isFloorUpdate = floorId.isNotEmpty;
+        final floorType = data['selectedFloorType']?.toString().trim() ?? '';
+         final floorHeight = double.tryParse( data['floorHeight']?.toString() ?? '', ) ?? 0.0;
+          final floorArea = double.tryParse( data['floorArea']?.toString() ?? '', ) ?? 0.0; 
+          final floorLabelName = data['floorLabelName']?.toString().trim() ?? ''; print('🏢 Processing floor: "$floorNumber"');
+           print(' Floor type: $floorType');
+            print(' Floor height: $floorHeight'); 
+           print(' Floor area: $floorArea');
+            print(' Floor label: $floorLabelName');
+            print(' Number of flats: $numberOfFlats');
+             print(' Is parking floor: $isParkingFloor');
 
-        if (!isFloorUpdate) {
-          // CREATE new floor
-          Map<String, dynamic> floorPayload = {
-            "floor_number": floorNumber,
-            "floor_height": data['floorHeight'],
-            "total_area_sq_mts": data['floorArea'],
-            "floor_label_name": data['floorLabelName'],
-            "number_of_flats": numberOfFlats,
-            "floor_notes": "",
-            "is_parking_floor": isParkingFloor,
-          };
-
-          // Add parking_floor_type only if it's a parking floor
-          if (isParkingFloor && data['parking_floor_type'] != null) {
-            floorPayload["parking_floor_type"] = data['parking_floor_type'];
-          }
-
-          print('🆕 Creating new floor...');
-          final floorResponse = await addstructureProvider
-              .addGeometricDataFloors(
-                context: context,
-                rawFloors: [floorPayload],
-                isUpdate: false,
-                structureId: widget.structureId,
-              );
-
-          if (floorResponse == null || floorResponse['success'] != true) {
-            print("⚠️ Failed to add floor: $floorNumber");
-            continue;
-          }
-
-          final floors = floorResponse['data']['floors'] as List<dynamic>;
-          if (floors.isEmpty) {
-            print("⚠️ No floors returned in response");
-            continue;
-          }
-
-          floorId = floors[0]['floor_id'] as String;
-          print('✅ Floor created successfully: "$floorNumber" (ID: $floorId)');
-        } else {
-          print('🔄 Using existing floor ID: $floorId');
-        }
-
+    if (isFloorUpdate) {
+       print( '🔄 Existing floor found. Calling PUT API...', ); 
+       print( ' Floor number: $floorNumber', ); print( ' Floor ID: $floorId', ); 
+       try {
+         final response = await addstructureProvider.putFloorDetails(
+           structureId: widget.structureId,
+            floorId: floorId, floorNumber: int.tryParse(floorNumber) ?? 0,
+             floorType: floorType,
+              floorHeight: floorHeight,
+               totalAreaSqMts: floorArea, 
+               context: context,
+               floorLabelName: floorLabelName, numberOfFlats: numberOfFlats, );
+                print( '📡 PUT floor response status: ${response.statusCode}', ); 
+                print( '📡 PUT floor response body: ${response.body}', );
+                 if (response.statusCode == 200 || response.statusCode == 204) { 
+                  print( '✅ Floor updated successfully: $floorNumber', );
+                   } else {
+                     print( '❌ Failed to update floor: $floorNumber', ); 
+                     _showErrorMessage( 'Failed to update floor $floorNumber', ); 
+                     continue; 
+                     }
+                      }
+                       catch (e) { 
+                        print( '❌ Error updating floor $floorNumber: $e', );
+                         _showErrorMessage( 'Failed to update floor $floorNumber: $e', );
+                          continue; 
+                          }
+                           } // --------------------------------------------------------- // NEW FLOOR -> POST API // ---------------------------------------------------------
+                            else {
+                               print( '🆕 Floor does not exist. Creating new floor...', );
+                                Map<String, dynamic> floorPayload = { 
+                                  "floor_number": floorNumber, 
+                                  "floor_height": data['floorHeight'],
+                                   "total_area_sq_mts": data['floorArea'], 
+                                   "floor_label_name": data['floorLabelName'],
+                                    "number_of_flats": numberOfFlats, "floor_notes": "", 
+                                    "is_parking_floor": isParkingFloor,
+                                     };} // Add parking floor type only for parking floors if (isParkingFloor && data['parking_floor_type'] != null) { floorPayload["parking_floor_type"] = data['parking_floor_type']; } print( '📤 Creating floor with payload: $floorPayload', ); final floorResponse = await addstructureProvider.addGeometricDataFloors( context: context, rawFloors: [floorPayload], isUpdate: false, structureId: widget.structureId, ); if (floorResponse == null || floorResponse['success'] != true) { print( '❌ Failed to add floor: $floorNumber', ); _showErrorMessage( 'Failed to add floor $floorNumber', ); continue; } final floors = floorResponse['data']['floors'] as List<dynamic>; if (floors.isEmpty) { print( '⚠️ No floor returned in response', ); continue; } floorId = floors[0]['floor_id'] as String; print( '✅ Floor created successfully: ' '"$floorNumber" (ID: $floorId)', ); }
+   
         // ✅ CRITICAL: Always collect floor data regardless of whether it has flats
         print('📝 Adding floor to collections: $floorNumber');
         allFloorNumbers.add(floorNumber);

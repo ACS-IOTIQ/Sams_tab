@@ -95,6 +95,11 @@ class AddRatingsStructureProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void removeExistingDoc(RatingItem item, String url) {
+  item.docUrls.remove(url);
+  notifyListeners();
+}
+
   void updateDistressUnit(
     RatingItem item,
     DistressMeasurementUnit unit, {

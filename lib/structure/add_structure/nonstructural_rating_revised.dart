@@ -947,7 +947,35 @@ class _NonStructuralRatingState extends State<NonStructuralRating> {
                           .extension(url)
                           .toLowerCase()
                           .replaceAll('.', '');
-                      return _filePlaceholder(ext);
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          _filePlaceholder(ext),
+                          Positioned(
+                            top: -4,
+                            right: -4,
+                            child: GestureDetector(
+                              onTap: () => _confirmRemoveExistingDoc(
+                                provider,
+                                item,
+                                url,
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.all(3),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.close,
+                                  color: Colors.white,
+                                  size: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
                     }).toList(),
                   ),
                 ],
@@ -1010,6 +1038,43 @@ class _NonStructuralRatingState extends State<NonStructuralRating> {
     if (confirmed != true || !mounted) return;
 
     provider.removeExistingPhoto(item, url);
+    setState(() {});
+  }
+
+  /// Deletes a document that is already stored on the server.
+  ///
+  /// The removal only reaches the backend when these ratings are submitted,
+  /// so confirm before discarding work the inspector already uploaded.
+  Future<void> _confirmRemoveExistingDoc(
+    AddRatingsStructureProvider provider,
+    RatingItem item,
+    String url,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove document?'),
+        content: const Text(
+          'This document is removed from the inspection when you submit these '
+          'ratings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    provider.removeExistingDoc(item, url);
     setState(() {});
   }
 
