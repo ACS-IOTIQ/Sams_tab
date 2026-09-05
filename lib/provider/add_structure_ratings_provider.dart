@@ -1333,13 +1333,13 @@ extension DistressMeasurementUnitX on DistressMeasurementUnit {
   String get label {
     switch (this) {
       case DistressMeasurementUnit.nos:
-        return 'No.s';
+        return 'Nos';
       case DistressMeasurementUnit.rm:
-        return 'Running meter';
+        return 'Running meters';
       case DistressMeasurementUnit.sqm:
-        return 'Sq. meter';
+        return 'Square meters';
       case DistressMeasurementUnit.cum:
-        return 'meter';
+        return 'Meters';
     }
   }
 

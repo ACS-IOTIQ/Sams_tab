@@ -1702,8 +1702,12 @@ class _StructuralRatingState extends State<StructuralRating> {
     return LabeledField(
       label: "Units",
       child: RadioGroupDropdown<DistressMeasurementUnit>(
-        options: DistressMeasurementUnit.values
-            .where((unit) => unit != DistressMeasurementUnit.nos)
+        options: const [
+          DistressMeasurementUnit.nos,
+          DistressMeasurementUnit.sqm,
+          DistressMeasurementUnit.rm,
+          DistressMeasurementUnit.cum,
+        ]
             .map((unit) => RadioOption(unit, unit.label))
             .toList(),
         value: item.distressUnit,
