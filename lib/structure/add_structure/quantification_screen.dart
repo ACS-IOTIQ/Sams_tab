@@ -57,7 +57,10 @@ class _QuantificationScreenState extends State<QuantificationScreen>
   Future<void> _loadQuantifications() async {
     setState(() => _isLoading = true);
 
-    final quantProvider = Provider.of<QuantificationProvider>(context, listen: false);
+    final quantProvider = Provider.of<QuantificationProvider>(
+      context,
+      listen: false,
+    );
     bool loaded = false;
 
     if (widget.flatId != null) {
@@ -75,7 +78,9 @@ class _QuantificationScreenState extends State<QuantificationScreen>
       );
     }
 
-    if (loaded && (quantProvider.structural.isNotEmpty || quantProvider.nonStructural.isNotEmpty)) {
+    if (loaded &&
+        (quantProvider.structural.isNotEmpty ||
+            quantProvider.nonStructural.isNotEmpty)) {
       _structuralRows
         ..clear()
         ..addAll(quantProvider.structural.map(QuantificationRow.fromEntry));
@@ -90,8 +95,14 @@ class _QuantificationScreenState extends State<QuantificationScreen>
   }
 
   Future<void> _prefillFromRatings() async {
-    final ratingsProvider = Provider.of<AddRatingsStructureProvider>(context, listen: false);
-    final getProvider = Provider.of<GetstructureProvider>(context, listen: false);
+    final ratingsProvider = Provider.of<AddRatingsStructureProvider>(
+      context,
+      listen: false,
+    );
+    final getProvider = Provider.of<GetstructureProvider>(
+      context,
+      listen: false,
+    );
 
     // If ratings are empty, try fetching from API for this floor/flat.
     if (ratingsProvider.structuralRatingMap.isEmpty &&
@@ -105,8 +116,12 @@ class _QuantificationScreenState extends State<QuantificationScreen>
             flatId: widget.flatId!,
             context: context,
           );
-          ratingsProvider.populateStructuralRatingsFromFlat(data.data.structuralRating);
-          ratingsProvider.populateNonStructuralRatingsFromFlat(data.data.nonStructuralRating);
+          ratingsProvider.populateStructuralRatingsFromFlat(
+            data.data.structuralRating,
+          );
+          ratingsProvider.populateNonStructuralRatingsFromFlat(
+            data.data.nonStructuralRating,
+          );
         } else {
           final data = await getProvider.getAllRatingsForFloor(
             structureId: widget.structureId,
@@ -114,10 +129,14 @@ class _QuantificationScreenState extends State<QuantificationScreen>
             flatId: '',
             context: context,
           );
-          ratingsProvider.populateStructuralRatingsFromFloor(data.data.structuralRating);
+          ratingsProvider.populateStructuralRatingsFromFloor(
+            data.data.structuralRating,
+          );
           final nonStructural = data.data.nonStructuralRating;
           if (nonStructural != null) {
-            ratingsProvider.populateNonStructuralRatingsFromFloor(nonStructural);
+            ratingsProvider.populateNonStructuralRatingsFromFloor(
+              nonStructural,
+            );
           }
         }
       } catch (_) {
@@ -127,17 +146,21 @@ class _QuantificationScreenState extends State<QuantificationScreen>
 
     _structuralRows
       ..clear()
-      ..addAll(_buildRowsFromRatings(
-        ratingsProvider.structuralRatingMap,
-        isStructural: true,
-      ));
+      ..addAll(
+        _buildRowsFromRatings(
+          ratingsProvider.structuralRatingMap,
+          isStructural: true,
+        ),
+      );
 
     _nonStructuralRows
       ..clear()
-      ..addAll(_buildRowsFromRatings(
-        ratingsProvider.nonStructuralRatingMap,
-        isStructural: false,
-      ));
+      ..addAll(
+        _buildRowsFromRatings(
+          ratingsProvider.nonStructuralRatingMap,
+          isStructural: false,
+        ),
+      );
   }
 
   List<QuantificationRow> _buildRowsFromRatings(
@@ -168,7 +191,7 @@ class _QuantificationScreenState extends State<QuantificationScreen>
             id: _randomId(),
             category: category,
             locationOfDistress: locationText,
-            nos: '1',
+            nos: '',
             length: item.lengthController.text,
             breadth: item.widthController.text,
             height: item.heightController.text,
@@ -221,11 +244,20 @@ class _QuantificationScreenState extends State<QuantificationScreen>
         .join(' ');
   }
 
-  String _randomId() => 'q_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(9999)}';
+  String _randomId() =>
+      'q_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(9999)}';
 
   double _toDouble(String value) => double.tryParse(value) ?? 0;
 
-  double _computeQuantity(QuantificationRow row) {
+  double? _computeQuantity(QuantificationRow row) {
+    if ([
+      row.nosController,
+      row.lengthController,
+      row.breadthController,
+      row.heightController,
+    ].every((controller) => controller.text.trim().isEmpty)) {
+      return null;
+    }
     final nosText = row.nosController.text.trim();
     final nos = nosText.isEmpty ? 1.0 : _toDouble(nosText);
     final length = _toDouble(row.lengthController.text);
@@ -234,12 +266,15 @@ class _QuantificationScreenState extends State<QuantificationScreen>
 
     final hasDim = length > 0 || breadth > 0 || height > 0;
     final dimMultiplier =
-        (length > 0 ? length : 1) * (breadth > 0 ? breadth : 1) * (height > 0 ? height : 1);
+        (length > 0 ? length : 1) *
+        (breadth > 0 ? breadth : 1) *
+        (height > 0 ? height : 1);
 
     return hasDim ? (nos * dimMultiplier) : nos;
   }
 
   String _computeUnit(QuantificationRow row) {
+    if (_computeQuantity(row) == null) return '';
     final length = _toDouble(row.lengthController.text);
     final breadth = _toDouble(row.breadthController.text);
     final height = _toDouble(row.heightController.text);
@@ -250,7 +285,10 @@ class _QuantificationScreenState extends State<QuantificationScreen>
   }
 
   Future<void> _saveQuantifications() async {
-    final quantProvider = Provider.of<QuantificationProvider>(context, listen: false);
+    final quantProvider = Provider.of<QuantificationProvider>(
+      context,
+      listen: false,
+    );
 
     final structuralEntries = _structuralRows.map((row) {
       final quantity = _computeQuantity(row);
@@ -317,8 +355,14 @@ class _QuantificationScreenState extends State<QuantificationScreen>
           child: TabBarView(
             controller: _tabController,
             children: [
-              _buildQuantificationSection(_structuralRows, title: 'Structural Observations'),
-              _buildQuantificationSection(_nonStructuralRows, title: 'Non-Structural Observations'),
+              _buildQuantificationSection(
+                _structuralRows,
+                title: 'Structural Observations',
+              ),
+              _buildQuantificationSection(
+                _nonStructuralRows,
+                title: 'Non-Structural Observations',
+              ),
             ],
           ),
         ),
@@ -329,7 +373,9 @@ class _QuantificationScreenState extends State<QuantificationScreen>
             onPressed: _saveQuantifications,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: Text('Save Quantifications', style: w500_16Poppins()),
           ),
@@ -338,7 +384,10 @@ class _QuantificationScreenState extends State<QuantificationScreen>
     );
   }
 
-  Widget _buildQuantificationSection(List<QuantificationRow> rows, {required String title}) {
+  Widget _buildQuantificationSection(
+    List<QuantificationRow> rows, {
+    required String title,
+  }) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,7 +397,9 @@ class _QuantificationScreenState extends State<QuantificationScreen>
               Text(title, style: w600_16Poppins()),
               const Spacer(),
               ElevatedButton.icon(
-                onPressed: () => setState(() => rows.add(QuantificationRow.empty(_randomId()))),
+                onPressed: () => setState(
+                  () => rows.add(QuantificationRow.empty(_randomId())),
+                ),
                 icon: const Icon(Icons.add, size: 16),
                 label: const Text('Add Row'),
               ),
@@ -406,23 +457,57 @@ class _QuantificationScreenState extends State<QuantificationScreen>
 
             return TableRow(
               children: [
-                _textCell(row.categoryController, cellPadding, onChanged: (_) => setState(() {})),
-                _textCell(row.locationController, cellPadding, onChanged: (_) => setState(() {})),
-                _numberCell(row.nosController, cellPadding, onChanged: (_) => setState(() {})),
-                _numberCell(row.lengthController, cellPadding, onChanged: (_) => setState(() {})),
-                _numberCell(row.breadthController, cellPadding, onChanged: (_) => setState(() {})),
-                _numberCell(row.heightController, cellPadding, onChanged: (_) => setState(() {})),
+                _textCell(
+                  row.categoryController,
+                  cellPadding,
+                  onChanged: (_) => setState(() {}),
+                ),
+                _textCell(
+                  row.locationController,
+                  cellPadding,
+                  onChanged: (_) => setState(() {}),
+                ),
+                _numberCell(
+                  row.nosController,
+                  cellPadding,
+                  onChanged: (_) => setState(() {}),
+                ),
+                _numberCell(
+                  row.lengthController,
+                  cellPadding,
+                  onChanged: (_) => setState(() {}),
+                ),
+                _numberCell(
+                  row.breadthController,
+                  cellPadding,
+                  onChanged: (_) => setState(() {}),
+                ),
+                _numberCell(
+                  row.heightController,
+                  cellPadding,
+                  onChanged: (_) => setState(() {}),
+                ),
                 Padding(
                   padding: cellPadding,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(quantity.toStringAsFixed(2), style: w500_12Poppins()),
-                      Text(unit, style: w400_10Poppins(color: Colors.grey.shade600)),
+                      Text(
+                        quantity?.toStringAsFixed(2) ?? '\u2014',
+                        style: w500_12Poppins(),
+                      ),
+                      Text(
+                        unit.isEmpty ? '\u2014' : unit,
+                        style: w400_10Poppins(color: Colors.grey.shade600),
+                      ),
                     ],
                   ),
                 ),
-                _textCell(row.repairController, cellPadding, onChanged: (_) => setState(() {})),
+                _textCell(
+                  row.repairController,
+                  cellPadding,
+                  onChanged: (_) => setState(() {}),
+                ),
                 Padding(
                   padding: cellPadding,
                   child: IconButton(
@@ -445,7 +530,10 @@ class _QuantificationScreenState extends State<QuantificationScreen>
   Widget _buildBoqSummary(List<QuantificationRow> rows) {
     final summary = _calculateSummary(rows);
     if (summary.isEmpty) {
-      return Text('BoQ Summary will appear here.', style: w400_12Poppins(color: Colors.grey.shade600));
+      return Text(
+        'BoQ Summary will appear here.',
+        style: w400_12Poppins(color: Colors.grey.shade600),
+      );
     }
 
     return Column(
@@ -465,12 +553,19 @@ class _QuantificationScreenState extends State<QuantificationScreen>
             rows: summary.asMap().entries.map((entry) {
               final idx = entry.key;
               final row = entry.value;
-              return DataRow(cells: [
-                DataCell(Text('${idx + 1}', style: w400_12Poppins())),
-                DataCell(Text(row.description, style: w400_12Poppins())),
-                DataCell(Text(row.quantity.toStringAsFixed(2), style: w400_12Poppins())),
-                DataCell(Text(row.unit, style: w400_12Poppins())),
-              ]);
+              return DataRow(
+                cells: [
+                  DataCell(Text('${idx + 1}', style: w400_12Poppins())),
+                  DataCell(Text(row.description, style: w400_12Poppins())),
+                  DataCell(
+                    Text(
+                      row.quantity.toStringAsFixed(2),
+                      style: w400_12Poppins(),
+                    ),
+                  ),
+                  DataCell(Text(row.unit, style: w400_12Poppins())),
+                ],
+              );
             }).toList(),
           ),
         ),
@@ -486,6 +581,7 @@ class _QuantificationScreenState extends State<QuantificationScreen>
       if (method.isEmpty) continue;
 
       final baseQty = _computeQuantity(row);
+      if (baseQty == null) continue;
       final methodKey = method.toLowerCase();
       double qty = baseQty;
       String unit = _computeUnit(row);
@@ -521,30 +617,36 @@ class _QuantificationScreenState extends State<QuantificationScreen>
     );
   }
 
-  Widget _textCell(TextEditingController controller, EdgeInsets padding,
-      {required ValueChanged<String> onChanged}) {
+  Widget _textCell(
+    TextEditingController controller,
+    EdgeInsets padding, {
+    required ValueChanged<String> onChanged,
+  }) {
     return Padding(
       padding: padding,
       child: CommonTextFormField(
         controller: controller,
         fillColor: Appcolors.textformFillColor,
         borderColor: Colors.grey.shade300,
-        hintText: '',
+        hintText: '\u2014',
         hintStyle: w400_12Poppins(),
         onChanged: onChanged,
       ),
     );
   }
 
-  Widget _numberCell(TextEditingController controller, EdgeInsets padding,
-      {required ValueChanged<String> onChanged}) {
+  Widget _numberCell(
+    TextEditingController controller,
+    EdgeInsets padding, {
+    required ValueChanged<String> onChanged,
+  }) {
     return Padding(
       padding: padding,
       child: CommonTextFormField(
         controller: controller,
         fillColor: Appcolors.textformFillColor,
         borderColor: Colors.grey.shade300,
-        hintText: '',
+        hintText: '\u2014',
         hintStyle: w400_12Poppins(),
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
@@ -573,50 +675,52 @@ class QuantificationRow {
     required String breadth,
     required String height,
     required String repairMethodology,
-  })  : categoryController = TextEditingController(text: category),
-        locationController = TextEditingController(text: locationOfDistress),
-        nosController = TextEditingController(text: nos),
-        lengthController = TextEditingController(text: length),
-        breadthController = TextEditingController(text: breadth),
-        heightController = TextEditingController(text: height),
-        repairController = TextEditingController(text: repairMethodology);
+  }) : categoryController = TextEditingController(text: category),
+       locationController = TextEditingController(text: locationOfDistress),
+       nosController = TextEditingController(text: nos),
+       lengthController = TextEditingController(text: length),
+       breadthController = TextEditingController(text: breadth),
+       heightController = TextEditingController(text: height),
+       repairController = TextEditingController(text: repairMethodology);
 
   factory QuantificationRow.empty(String id) => QuantificationRow(
-        id: id,
-        category: '',
-        locationOfDistress: '',
-        nos: '1',
-        length: '',
-        breadth: '',
-        height: '',
-        repairMethodology: '',
-      );
+    id: id,
+    category: '',
+    locationOfDistress: '',
+    nos: '',
+    length: '',
+    breadth: '',
+    height: '',
+    repairMethodology: '',
+  );
 
-  factory QuantificationRow.fromEntry(QuantificationEntry entry) => QuantificationRow(
-        id: entry.entryId.isNotEmpty ? entry.entryId : 'q_${DateTime.now().millisecondsSinceEpoch}',
+  factory QuantificationRow.fromEntry(QuantificationEntry entry) =>
+      QuantificationRow(
+        id: entry.entryId.isNotEmpty
+            ? entry.entryId
+            : 'q_${DateTime.now().millisecondsSinceEpoch}',
         category: entry.category,
         locationOfDistress: entry.locationOfDistress,
-        nos: entry.nos.toString(),
-        length: entry.length.toString(),
-        breadth: entry.breadth.toString(),
-        height: entry.height.toString(),
+        nos: entry.nos?.toString() ?? '',
+        length: entry.length?.toString() ?? '',
+        breadth: entry.breadth?.toString() ?? '',
+        height: entry.height?.toString() ?? '',
         repairMethodology: entry.repairMethodology,
       );
 
-  QuantificationEntry toEntry({required double quantity, required String unit}) {
-    double toDoubleWithDefault(String value, {double fallback = 0}) {
-      final v = value.trim();
-      if (v.isEmpty) return fallback;
-      return double.tryParse(v) ?? fallback;
-    }
+  QuantificationEntry toEntry({
+    required double? quantity,
+    required String unit,
+  }) {
+    double? parseMeasurement(String value) => double.tryParse(value.trim());
     return QuantificationEntry(
       entryId: id,
       category: categoryController.text.trim(),
       locationOfDistress: locationController.text.trim(),
-      nos: toDoubleWithDefault(nosController.text, fallback: 1),
-      length: toDoubleWithDefault(lengthController.text),
-      breadth: toDoubleWithDefault(breadthController.text),
-      height: toDoubleWithDefault(heightController.text),
+      nos: parseMeasurement(nosController.text),
+      length: parseMeasurement(lengthController.text),
+      breadth: parseMeasurement(breadthController.text),
+      height: parseMeasurement(heightController.text),
       quantity: quantity,
       unit: unit,
       repairMethodology: repairController.text.trim(),

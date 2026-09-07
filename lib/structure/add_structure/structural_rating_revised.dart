@@ -1,3 +1,4 @@
+import 'package:sams_engineering_console/utils/attachment_opener.dart';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -837,7 +838,7 @@ class _StructuralRatingState extends State<StructuralRating> {
                           GestureDetector(
                             onTap: isImg
                                 ? () => _showExpandedImage(localFile: file)
-                                : null,
+                                : () => AttachmentOpener.openLocal(file.path),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: isImg
@@ -968,7 +969,10 @@ class _StructuralRatingState extends State<StructuralRating> {
                       return Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          _filePlaceholder(ext),
+                          GestureDetector(
+                            onTap: () => AttachmentOpener.openLocal(file.path),
+                            child: _filePlaceholder(ext),
+                          ),
                           Positioned(
                             top: -4,
                             right: -4,
@@ -1172,7 +1176,11 @@ class _StructuralRatingState extends State<StructuralRating> {
                       return Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          _filePlaceholder(ext),
+                          GestureDetector(
+                            onTap: () =>
+                                AttachmentOpener.openRemote(context, url),
+                            child: _filePlaceholder(ext),
+                          ),
                           Positioned(
                             top: -4,
                             right: -4,
@@ -1261,9 +1269,9 @@ class _StructuralRatingState extends State<StructuralRating> {
     final selected = _distressTypePerItem[mapKey] ?? item.distressTypes;
 
     return CheckboxGroupDropdown<String>(
-      options: _getDistressOptions(type)
-          .map((opt) => RadioOption(opt, _distressLabel(opt)))
-          .toList(),
+      options: _getDistressOptions(
+        type,
+      ).map((opt) => RadioOption(opt, _distressLabel(opt))).toList(),
       values: selected,
       hintText: 'Select distress types',
       sheetTitle: 'Distress types',
@@ -1707,9 +1715,7 @@ class _StructuralRatingState extends State<StructuralRating> {
           DistressMeasurementUnit.sqm,
           DistressMeasurementUnit.rm,
           DistressMeasurementUnit.cum,
-        ]
-            .map((unit) => RadioOption(unit, unit.label))
-            .toList(),
+        ].map((unit) => RadioOption(unit, unit.label)).toList(),
         value: item.distressUnit,
         hintText: "Select unit",
         sheetTitle: "Measurement unit",

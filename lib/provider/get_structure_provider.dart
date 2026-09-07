@@ -6,7 +6,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:open_file/open_file.dart';
+import 'package:sams_engineering_console/utils/attachment_opener.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
@@ -807,7 +807,7 @@ class GetstructureProvider extends ChangeNotifier {
       await CustomToast.showDownloadToast(
         msg: 'Saved ${file.uri.pathSegments.last} in Downloads. Tap to open.',
         onTap: () {
-          OpenFile.open(file.path);
+          AttachmentOpener.openLocal(file.path);
         },
       );
     } catch (error) {
@@ -1250,7 +1250,7 @@ class GetstructureProvider extends ChangeNotifier {
         );
 
         // Optional: Open the file automatically
-        // await OpenFile.open(file.path);
+        // await AttachmentOpener.openLocal(file.path);
       } else {
         throw Exception(
           "Failed to download file. Status code: ${response.statusCode}",
@@ -1312,7 +1312,7 @@ class GetstructureProvider extends ChangeNotifier {
         print("object $response");
 
         // Optional: open the file
-        // await OpenFile.open(file.path);
+        // await AttachmentOpener.openLocal(file.path);
       } else {
         throw Exception("❌ Download failed. Code: ${response.statusCode}");
       }

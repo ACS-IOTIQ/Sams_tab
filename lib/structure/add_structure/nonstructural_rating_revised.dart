@@ -1,3 +1,4 @@
+import 'package:sams_engineering_console/utils/attachment_opener.dart';
 // ignore_for_file: invalid_use_of_protected_member
 
 import 'dart:io';
@@ -618,7 +619,7 @@ class _NonStructuralRatingState extends State<NonStructuralRating> {
                           GestureDetector(
                             onTap: isImg
                                 ? () => _showExpandedImage(localFile: file)
-                                : null,
+                                : () => AttachmentOpener.openLocal(file.path),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: isImg
@@ -746,7 +747,10 @@ class _NonStructuralRatingState extends State<NonStructuralRating> {
                       return Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          _filePlaceholder(ext),
+                          GestureDetector(
+                            onTap: () => AttachmentOpener.openLocal(file.path),
+                            child: _filePlaceholder(ext),
+                          ),
                           Positioned(
                             top: -4,
                             right: -4,
@@ -950,7 +954,11 @@ class _NonStructuralRatingState extends State<NonStructuralRating> {
                       return Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          _filePlaceholder(ext),
+                          GestureDetector(
+                            onTap: () =>
+                                AttachmentOpener.openRemote(context, url),
+                            child: _filePlaceholder(ext),
+                          ),
                           Positioned(
                             top: -4,
                             right: -4,
@@ -1425,9 +1433,7 @@ class _NonStructuralRatingState extends State<NonStructuralRating> {
           DistressMeasurementUnit.sqm,
           DistressMeasurementUnit.rm,
           DistressMeasurementUnit.cum,
-        ]
-            .map((unit) => RadioOption(unit, unit.label))
-            .toList(),
+        ].map((unit) => RadioOption(unit, unit.label)).toList(),
         value: item.distressUnit,
         hintText: "Select unit",
         sheetTitle: "Measurement unit",
