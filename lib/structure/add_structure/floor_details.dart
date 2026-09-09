@@ -631,7 +631,10 @@ class FloordetailsWidgetState extends State<FloordetailsWidget> {
       await getstructureProvider.getFloorsByStructureId(
         structureId: widget.structureId,
         context: context,
+        forceRefresh: true,
       );
+
+      if (!mounted) return;
 
       final floors =
           getstructureProvider.getFloorsDetailsByStrId?.data?.floors ?? [];
@@ -747,15 +750,14 @@ class FloordetailsWidgetState extends State<FloordetailsWidget> {
     });
 
     try {
-      final existingFlatsData = getstructureProvider.getFlatsByFloorId(floorId);
+      // A remounted floor must display edits saved on the previous visit.
+      await getstructureProvider.getFlatsWithDetailsByFloorId(
+        structureId: widget.structureId,
+        floorId: floorId,
+        context: context,
+      );
 
-      if (existingFlatsData == null || existingFlatsData.data.flats == null) {
-        await getstructureProvider.getFlatsWithDetailsByFloorId(
-          structureId: widget.structureId,
-          floorId: floorId,
-          context: context,
-        );
-      }
+      if (!mounted) return;
 
       final flatsData = getstructureProvider.getFlatsByFloorId(floorId);
 

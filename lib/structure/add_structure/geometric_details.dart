@@ -95,6 +95,7 @@ class _GeometricdetailsState extends State<Geometricdetails> {
       await getstructureProvider.getFloorsByStructureId(
         structureId: widget.structureId,
         context: context,
+        forceRefresh: true,
       );
 
       if (!mounted) return;
@@ -802,6 +803,7 @@ class _GeometricdetailsState extends State<Geometricdetails> {
           await getstructureProvider.getFloorsByStructureId(
             structureId: widget.structureId,
             context: context,
+            forceRefresh: true,
           );
           print('✅ Floors data reloaded successfully');
         } catch (e) {
