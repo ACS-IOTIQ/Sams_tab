@@ -166,7 +166,7 @@ class _StructuralRatingState extends State<StructuralRating> {
     // Fill from shared store if it has data and the item is still blank.
     if (_sharedFoundation.isNotEmpty &&
         fi.ratingController.text.isEmpty &&
-        fi.commentController.text.isEmpty) {
+        fi.commentController.text.isEmpty) {                       
       fi.ratingController.text = _sharedFoundation[_fRating] ?? '';
       fi.commentController.text = _sharedFoundation[_fComment] ?? '';
       fi.lengthController.text = _sharedFoundation[_fLength] ?? '';
@@ -1515,7 +1515,7 @@ class _StructuralRatingState extends State<StructuralRating> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: localFile != null
-                    ? Image.file(localFile, fit: BoxFit.contain)
+                     ? Image.file(localFile, fit: BoxFit.contain)
                     : Image.network(
                         networkUrl!,
                         fit: BoxFit.contain,
